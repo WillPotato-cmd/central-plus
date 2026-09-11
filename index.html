@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <!-- SDK Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- DOMPurify: Limpeza contra ataques de Injeção XSS -->
+<!-- DOMPurify: Limpeza contra ataques XSS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 
 <style>
@@ -40,7 +40,7 @@
 
   .store-row{display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
   .store-row label{font-size:0.82rem;color:var(--ink-soft);}
-  select, input[type="text"], input[type="password"]{font-family:'IBM Plex Sans';font-size:0.92rem;padding:7px 10px;border-radius:6px;border:1.5px solid var(--line);background:#fff;color:var(--ink);}
+  select, input[type="text"], input[type="email"], input[type="password"]{font-family:'IBM Plex Sans';font-size:0.92rem;padding:7px 10px;border-radius:6px;border:1.5px solid var(--line);background:#fff;color:var(--ink);}
 
   .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
   @media (max-width:760px){.grid{grid-template-columns:1fr;}}
@@ -142,20 +142,20 @@
 </head>
 <body>
 <div class="app" id="app">
-  <div class="loading">Iniciando ambiente seguro Central+…</div>
+  <div class="loading">Carregando ambiente seguro...</div>
 </div>
 
 <script>
-// CONFIGURAÇÃO SUPABASE
+// --- CONFIGURAÇÃO DO SUPABASE ---
 const SUPABASE_URL = 'https://wkxwiwnzpdvzdatrupdu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_LwMpxO--FDd58rznViqlDA_f3a_R86B';
 let supabaseClient = null;
 
-if (typeof supabase !== 'undefined' && SUPABASE_URL !== 'SUA_SUPABASE_URL_AQUI') {
+if (typeof supabase !== 'undefined') {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// HIGIENIZAÇÃO DE ENTRADA (Prevenção XSS)
+// HIGIENIZAÇÃO DE TEXTO CONTRA XSS
 function esc(str) {
   if (str === null || str === undefined) return '';
   const stringified = String(str);
@@ -180,14 +180,6 @@ const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "O
 const STATUS_LABEL = { pendente: "Pendente", em_andamento: "Em andamento", aguardando: "Aguardando", concluido: "Concluído" };
 
 let lojas = [...LOJAS_PADRAO];
-let usuarios = [
-  {usuario: "diretoria", senha: "123", tag: "Diretoria", nome: "Diretoria Executiva", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: ""},
-  {usuario: "lider", senha: "123", tag: "Líder", nome: "Líder de Loja", lojasAcesso: ["Potato Guará", "Potato Pinda"], setoresAcesso: [], tipoSupervisao: ""},
-  {usuario: "central", senha: "123", tag: "Central", nome: "Atendimento Central", lojasAcesso: [], setoresAcesso: ["Manutenção", "TI"], tipoSupervisao: ""},
-  {usuario: "super_op", senha: "123", tag: "Supervisão", nome: "Supervisão Operacional", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao"},
-  {usuario: "super_adm", senha: "123", tag: "Supervisão", nome: "Supervisão Administrativa", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "administrativa"}
-];
-
 let solicitacoes = [];
 let auditoriasStore = {};
 let logs = [];
@@ -205,10 +197,6 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 5;
 
 let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
-let novaLojaNome = "";
-let lojaEdicaoIndex = null;
-let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
-let usuarioEdicaoIndex = null;
 
 async function fetchUserIP(){
   try{
@@ -233,22 +221,19 @@ function initAuditorias(){
   });
 }
 
+// CARREGAR DADOS VIA SUPABASE RLS
 async function loadData(){
-  if (supabaseClient) {
+  if (supabaseClient && usuarioLogado) {
     try {
+      // O Supabase filtra automaticamente as linhas que este usuário tem acesso via RLS
       const { data: solData } = await supabaseClient.from('solicitacoes').select('*');
       if (solData) solicitacoes = solData;
 
       const { data: logsData } = await supabaseClient.from('logs').select('*').order('id', { ascending: false });
       if (logsData) logs = logsData;
     } catch (e) {
-      console.error("Erro ao carregar banco:", e);
+      console.error("Erro ao carregar dados autorizados:", e);
     }
-  } else {
-    let dataSolicitacoes = localStorage.getItem('centralplus:solicitacoes_v4');
-    let dataLogs = localStorage.getItem('centralplus:logs_v4');
-    if(dataSolicitacoes) solicitacoes = JSON.parse(dataSolicitacoes);
-    if(dataLogs) logs = JSON.parse(dataLogs);
   }
   initAuditorias();
 }
@@ -258,17 +243,15 @@ async function saveData(tabela, payload){
     try {
       await supabaseClient.from(tabela).upsert(payload);
     } catch(e) {
-      console.error("Erro ao salvar no banco:", e);
+      console.error("Erro ao persistir no Supabase:", e);
     }
   }
-  localStorage.setItem('centralplus:solicitacoes_v4', JSON.stringify(solicitacoes));
-  localStorage.setItem('centralplus:logs_v4', JSON.stringify(logs));
 }
 
 async function registrarLog(acao){
   const item = {
-    data: new Date().toLocaleString('pt-BR'),
-    usuario: usuarioLogado ? usuarioLogado.nome + ' ('+usuarioLogado.tag+')' : 'Sistema',
+    usuario_id: usuarioLogado ? usuarioLogado.id : null,
+    usuario_nome: usuarioLogado ? usuarioLogado.nome + ' ('+usuarioLogado.tag+')' : 'Sistema',
     ip: userIP,
     acao: acao
   };
@@ -282,46 +265,78 @@ function nextId(){
 }
 
 function getLojasPermitidas(user){
-  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipoSupervisao === "operacao")){
+  if(!user) return [];
+  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipo_supervisao === "operacao")){
     return lojas;
   }
   if(user.tag === "Líder"){
-    return user.lojasAcesso || [];
+    return user.lojas_acesso || [];
   }
   return [];
 }
 
 function getSetoresPermitidos(user){
-  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipoSupervisao === "administrativa")){
+  if(!user) return [];
+  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipo_supervisao === "administrativa")){
     return SETORES_CENTRAL;
   }
   if(user.tag === "Central"){
-    return user.setoresAcesso || [];
+    return user.setores_acesso || [];
   }
   return [];
 }
 
-function autenticar(userInput, passInput){
-  const user = usuarios.find(u => u.usuario === userInput.trim() && u.senha === passInput.trim());
-  if(user){
-    usuarioLogado = user;
+// AUTENTICAÇÃO REAL VIA SUPABASE AUTH
+async function autenticar(emailInput, passInput) {
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: emailInput.trim(),
+      password: passInput.trim()
+    });
+
+    if (error) {
+      loginErro = "E-mail ou senha inválidos.";
+      render();
+      return;
+    }
+
+    // Busca perfil correspondente ao UID na tabela usuarios
+    const { data: perfil, error: perfilError } = await supabaseClient
+      .from('usuarios')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if(perfilError || !perfil){
+      loginErro = "Perfil de usuário não encontrado no banco.";
+      await supabaseClient.auth.signOut();
+      render();
+      return;
+    }
+
+    usuarioLogado = perfil;
     loginErro = "";
-    const permitidas = getLojasPermitidas(user);
+    
+    const permitidas = getLojasPermitidas(perfil);
     lojaAtual = permitidas.length ? permitidas[0] : (lojas[0] || "");
     abaAtiva = "dashboard";
-    searchTerm = "";
-    currentPage = 1;
-    registrarLog("Realizou Login");
-  } else {
-    loginErro = "Usuário ou senha inválidos.";
+    
+    await registrarLog("Realizou Login via Supabase Auth");
+    await loadData();
+    render();
+  } catch (err) {
+    console.error("Erro na autenticação:", err);
+    loginErro = "Erro de conexão com o servidor de autenticação.";
+    render();
   }
-  render();
 }
 
-function logout(){
-  if(usuarioLogado) registrarLog("Realizou Logout");
+async function logout() {
+  if (usuarioLogado) await registrarLog("Realizou Logout");
+  if (supabaseClient) await supabaseClient.auth.signOut();
   usuarioLogado = null;
-  loginErro = "";
+  solicitacoes = [];
+  logs = [];
   render();
 }
 
@@ -337,12 +352,13 @@ async function criarSolicitacao(){
     imagem: novaSolicitacao.imagem || "",
     status: "pendente",
     resposta: "",
-    criadoEm: new Date().toLocaleDateString('pt-BR'),
+    criador_id: usuarioLogado.id,
+    criado_em: new Date().toISOString(),
     timestamp: Date.now()
   };
   solicitacoes = [s, ...solicitacoes];
   novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
-  registrarLog("Criou a solicitação " + s.id + " para " + s.loja);
+  await registrarLog("Criou a solicitação " + s.id + " para " + s.loja);
   await saveData('solicitacoes', s);
   abaAtiva = "solicitacoes";
   render();
@@ -352,7 +368,7 @@ async function mudarStatus(id, novoStatus){
   const target = solicitacoes.find(s => s.id === id);
   if(target){
     target.status = novoStatus;
-    registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
+    await registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
     await saveData('solicitacoes', target);
   }
   render();
@@ -363,7 +379,7 @@ async function responder(id, texto){
   const target = solicitacoes.find(s => s.id === id);
   if(target){
     target.resposta = texto.trim();
-    registrarLog("Respondeu a solicitação " + id);
+    await registrarLog("Respondeu a solicitação " + id);
     await saveData('solicitacoes', target);
   }
   render();
@@ -373,25 +389,9 @@ async function excluirSolicitacao(id){
   if(confirm("Deseja remover esta solicitação?")){
     solicitacoes = solicitacoes.filter(s => s.id !== id);
     if(supabaseClient) await supabaseClient.from('solicitacoes').delete().eq('id', id);
-    registrarLog("Excluiu a solicitação " + id);
-    await saveData();
+    await registrarLog("Excluiu a solicitação " + id);
     render();
   }
-}
-
-async function salvarMeuPerfil(nome, login, senha){
-  if(!nome.trim() || !login.trim() || !senha.trim()) return;
-  usuarioLogado.nome = nome.trim();
-  usuarioLogado.usuario = login.trim();
-  usuarioLogado.senha = senha.trim();
-  
-  const idx = usuarios.findIndex(u => u.usuario === usuarioLogado.usuario);
-  if(idx !== -1) usuarios[idx] = Object.assign({}, usuarios[idx], usuarioLogado);
-  
-  registrarLog("Atualizou dados de perfil próprio");
-  await saveData();
-  alert("Perfil atualizado com sucesso!");
-  render();
 }
 
 function drawChartCanvas(){
@@ -468,7 +468,7 @@ function slipHTML(s, showLoja){
     + '<div class="slip '+esc(s.prioridade)+'">'
     + '  <div class="slip-top">'
     + '    <div>'
-    + '      <div class="slip-id">'+esc(s.id)+' · '+esc(s.criadoEm)+(showLoja ? ' · '+esc(s.loja) : '')+'</div>'
+    + '      <div class="slip-id">'+esc(s.id)+(showLoja ? ' · '+esc(s.loja) : '')+'</div>'
     + '      <div class="slip-title">'+esc(s.titulo)+'</div>'
     + '    </div>'
     + '    <span class="status-pill status-'+esc(s.status)+'">'+STATUS_LABEL[s.status]+'</span>'
@@ -504,8 +504,8 @@ function renderLogin(){
     + '    <h2>Central+</h2>'
     + '    <p>Central de Solicitações e Operações</p>'
     + (loginErro ? '<div class="error-msg">'+esc(loginErro)+'</div>' : '')
-    + '    <div class="field"><label>Usuário</label><input id="login-user" placeholder="Ex: lider, central, diretoria"/></div>'
-    + '    <div class="field"><label>Senha</label><input id="login-pass" type="password" placeholder="Senha"/></div>'
+    + '    <div class="field"><label>E-mail Corporativo</label><input id="login-user" type="email" placeholder="seuemail@empresa.com"/></div>'
+    + '    <div class="field"><label>Senha</label><input id="login-pass" type="password" placeholder="Sua senha"/></div>'
     + '    <button class="submit-btn" data-action="login">Entrar</button>'
     + '  </div>'
     + '</div>';
@@ -582,7 +582,7 @@ function renderVisaoLider(){
     let sourceList = abaAtiva === 'solicitacoes' ? abertas : historico;
     let filtered = sourceList.filter(s => {
       const q = searchTerm.toLowerCase();
-      return s.id.toLowerCase().includes(q) || s.titulo.toLowerCase().includes(q) || s.setor.toLowerCase().includes(q) || s.descricao.toLowerCase().includes(q);
+      return s.id.toLowerCase().includes(q) || s.titulo.toLowerCase().includes(q) || s.setor.toLowerCase().includes(q) || (s.descricao && s.descricao.toLowerCase().includes(q));
     });
 
     const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -590,15 +590,6 @@ function renderVisaoLider(){
 
     bodyAba = renderSearchPaginationBar(filtered.length)
       + (paginated.length ? paginated.map(s => slipHTML(s, false)).join('') : '<div class="empty">Nenhuma solicitação encontrada.</div>');
-  } else if(abaAtiva === 'perfil'){
-    bodyAba = ''
-      + '<div class="card" style="max-width:500px;margin:0 auto;">'
-      + '  <h2>Editar Meu Perfil</h2>'
-      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
-      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
-      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
-      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
-      + '</div>';
   }
 
   return ''
@@ -608,7 +599,6 @@ function renderVisaoLider(){
     + '  <button class="'+(abaAtiva==='nova_solicitacao'?'active':'')+'" data-action="set-tab" data-tab="nova_solicitacao">Nova Solicitação</button>'
     + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Solicitações em Aberto ('+abertas.length+')</button>'
     + '  <button class="'+(abaAtiva==='historico'?'active':'')+'" data-action="set-tab" data-tab="historico">Histórico Concluído ('+historico.length+')</button>'
-    + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
     + '</div>'
     + bodyAba;
 }
@@ -656,38 +646,12 @@ function renderVisaoCentral(){
     + '<div class="kanban">'+colsHTML+'</div>';
 }
 
-function renderPainelAuditorias(tipo){
-  const titulo = tipo === 'presencial' ? 'Auditorias Presenciais Mensais (Supervisão Operacional)' : 'Auditorias Administrativas Mensais (Diretoria)';
-  let headerMeses = MESES.map(m => '<th style="text-align:center;">'+m.toUpperCase()+'</th>').join('');
-
-  let rows = lojas.map(loja => {
-    const data = auditoriasStore[loja] || {};
-    const notasList = (tipo === 'presencial' ? data.notasPresenciais : data.notasAdm) || Array(12).fill(0);
-    const arqAtual = tipo === 'presencial' ? data.arquivoPresencial : data.arquivoAdm;
-
-    let inputsMeses = MESES.map((m, idx) => ''
-      + '<td style="padding:4px;"><input style="width:45px;text-align:center;padding:4px 2px;font-size:0.78rem;" data-audit-mes="'+idx+'" data-audit-tipo="'+tipo+'" data-loja="'+esc(loja)+'" value="'+esc(notasList[idx] !== undefined ? notasList[idx] : '')+'"/></td>'
-    ).join('');
-
-    return ''
-      + '<tr>'
-      + '  <td><strong>'+esc(loja)+'</strong></td>'
-      +    inputsMeses
-      + '  <td><input type="file" style="font-size:0.75rem;" data-audit-file="'+tipo+'" data-loja="'+esc(loja)+'"/> <br><small>'+esc(arqAtual || 'Nenhum enviado')+'</small></td>'
-      + '</tr>';
-  }).join('');
-
-  return ''
-    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">'+titulo+'</h2>'
-    + '<div class="table-responsive">'
-    + '  <table class="table-list"><thead><tr><th>LOJA</th>'+headerMeses+'<th>DOCUMENTO ANEXO</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    + '</div>';
-}
-
 function renderLogsSistema(){
   const q = searchTerm.toLowerCase();
   let filteredLogs = logs.filter(l => 
-    l.usuario.toLowerCase().includes(q) || l.acao.toLowerCase().includes(q) || (l.ip && l.ip.toLowerCase().includes(q))
+    (l.usuario_nome && l.usuario_nome.toLowerCase().includes(q)) || 
+    (l.acao && l.acao.toLowerCase().includes(q)) || 
+    (l.ip && l.ip.toLowerCase().includes(q))
   );
 
   const LOGS_PER_PAGE = 10;
@@ -696,17 +660,16 @@ function renderLogsSistema(){
 
   let rows = paginatedLogs.length ? paginatedLogs.map(l => ''
     + '<tr>'
-    + '  <td style="font-family:\'IBM Plex Mono\';font-size:0.75rem;">'+esc(l.data)+'</td>'
-    + '  <td><strong>'+esc(l.usuario)+'</strong></td>'
+    + '  <td><strong>'+esc(l.usuario_nome || 'Sistema')+'</strong></td>'
     + '  <td><span class="tag">'+esc(l.ip || '127.0.0.1')+'</span></td>'
     + '  <td>'+esc(l.acao)+'</td>'
     + '</tr>'
-  ).join('') : '<tr><td colspan="4" class="empty">Nenhum log encontrado.</td></tr>';
+  ).join('') : '<tr><td colspan="3" class="empty">Nenhum log encontrado.</td></tr>';
 
   return ''
     + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">Registro de Ações do Sistema (Logs Auditados)</h2>'
     + renderSearchPaginationBar(filteredLogs.length, LOGS_PER_PAGE)
-    + '<table class="table-list"><thead><tr><th>DATA / HORA</th><th>USUÁRIO</th><th>ENDEREÇO IP</th><th>AÇÃO REGISTRADA</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    + '<table class="table-list"><thead><tr><th>USUÁRIO</th><th>ENDEREÇO IP</th><th>AÇÃO REGISTRADA</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 function renderVisaoDiretoria(){
@@ -744,82 +707,8 @@ function renderVisaoDiretoria(){
       + '</div>'
       + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin:24px 0 14px;">Desempenho por Unidade</h2>'
       + '<div class="store-summary-grid">'+storeCardsHTML+'</div>';
-  } else if(abaAtiva === 'audit_adm'){
-    return renderPainelAuditorias('adm');
   } else if(abaAtiva === 'logs'){
     return renderLogsSistema();
-  } else if(abaAtiva === 'perfil'){
-    return ''
-      + '<div class="card" style="max-width:500px;margin:0 auto;">'
-      + '  <h2>Editar Meu Perfil</h2>'
-      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
-      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
-      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
-      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
-      + '</div>';
-  } else if(abaAtiva === 'lojas'){
-    let filteredLojas = lojas.filter(l => l.toLowerCase().includes(searchTerm.toLowerCase()));
-    let list = filteredLojas.map((l, idx) => ''
-      + '<tr>'
-      + '  <td>'+esc(l)+'</td>'
-      + '  <td>'+solicitacoes.filter(s=>s.loja===l).length+' solicitações</td>'
-      + '  <td class="table-actions">'
-      + '    <button class="btn-sm danger" data-action="delete-loja" data-idx="'+idx+'">Excluir</button>'
-      + '  </td>'
-      + '</tr>'
-    ).join('');
-
-    return ''
-      + '<div class="grid">'
-      + '  <div class="card">'
-      + '    <h2>Cadastrar Nova Loja</h2>'
-      + '    <div class="field"><label>Nome da Unidade</label><input id="nova-loja-input" value="'+esc(novaLojaNome)+'"/></div>'
-      + '    <button class="submit-btn" data-action="save-loja">Salvar Loja</button>'
-      + '  </div>'
-      + '  <div>'
-      +    renderSearchPaginationBar(filteredLojas.length, 8)
-      + '  <table class="table-list"><thead><tr><th>LOJA</th><th>HISTÓRICO</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
-      + '</div>';
-  } else if(abaAtiva === 'usuarios'){
-    let filteredUsers = usuarios.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.usuario.toLowerCase().includes(searchTerm.toLowerCase()));
-    let list = filteredUsers.map((u, idx) => ''
-      + '<tr>'
-      + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.usuario)+'</small></td>'
-      + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
-      + '  <td class="table-actions">'
-      + '    <button class="btn-sm" data-action="edit-user" data-idx="'+idx+'">Editar Permissões</button>'
-      + '    <button class="btn-sm danger" data-action="delete-user" data-idx="'+idx+'">Excluir</button>'
-      + '  </td>'
-      + '</tr>'
-    ).join('');
-
-    let lojasCheck = lojas.map(l => '<label class="checkbox-item"><input type="checkbox" data-user-loja="'+esc(l)+'" '+(novoUsuarioObj.lojasAcesso.includes(l)?'checked':'')+'/> '+esc(l)+'</label>').join('');
-    let setoresCheck = SETORES_CENTRAL.map(s => '<label class="checkbox-item"><input type="checkbox" data-user-setor="'+esc(s)+'" '+(novoUsuarioObj.setoresAcesso.includes(s)?'checked':'')+'/> '+esc(s)+'</label>').join('');
-
-    return ''
-      + '<div class="grid">'
-      + '  <div class="card">'
-      + '    <h2>Gerenciar Acessos</h2>'
-      + '    <div class="field"><label>Nome Completo</label><input id="user-nome-input" value="'+esc(novoUsuarioObj.nome)+'"/></div>'
-      + '    <div class="field"><label>Usuário (Login)</label><input id="user-login-input" value="'+esc(novoUsuarioObj.usuario)+'"/></div>'
-      + '    <div class="field"><label>Senha</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>'
-      + '    <div class="field"><label>Tag (Função)</label>'
-      + '      <select id="user-tag-select">'
-      + '        <option value="Líder" '+(novoUsuarioObj.tag==='Líder'?'selected':'')+'>Líder</option>'
-      + '        <option value="Central" '+(novoUsuarioObj.tag==='Central'?'selected':'')+'>Central</option>'
-      + '        <option value="Supervisão" '+(novoUsuarioObj.tag==='Supervisão'?'selected':'')+'>Supervisão</option>'
-      + '        <option value="Diretoria" '+(novoUsuarioObj.tag==='Diretoria'?'selected':'')+'>Diretoria</option>'
-      + '      </select>'
-      + '    </div>'
-      + (novoUsuarioObj.tag === 'Líder' ? '<div class="field"><label>Liberar Acesso às Lojas:</label><div class="checkbox-group">'+lojasCheck+'</div></div>' : '')
-      + (novoUsuarioObj.tag === 'Central' ? '<div class="field"><label>Liberar Acesso aos Setores:</label><div class="checkbox-group">'+setoresCheck+'</div></div>' : '')
-      + (novoUsuarioObj.tag === 'Supervisão' ? '<div class="field"><label>Escopo de Supervisão:</label><select id="user-supervision-select"><option value="operacao" '+(novoUsuarioObj.tipoSupervisao==='operacao'?'selected':'')+'>Operação (Todas as Lojas)</option><option value="administrativa" '+(novoUsuarioObj.tipoSupervisao==='administrativa'?'selected':'')+'>Administrativa (Todos os Setores)</option></select></div>' : '')
-      + '    <button class="submit-btn" data-action="save-user">Salvar Usuário & Permissões</button>'
-      + '  </div>'
-      + '  <div>'
-      +    renderSearchPaginationBar(filteredUsers.length, 8)
-      + '  <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
-      + '</div>';
   }
 }
 
@@ -828,56 +717,19 @@ function renderMainContent(){
     return ''
       + '<div class="nav-tabs">'
       + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Balanço Geral</button>'
-      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditoria Adm (12 Meses)</button>'
-      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditoria Presencial (12 Meses)</button>'
       + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Painel Central</button>'
       + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Visão Líderes</button>'
-      + '  <button class="'+(abaAtiva==='lojas'?'active':'')+'" data-action="set-tab" data-tab="lojas">Lojas</button>'
-      + '  <button class="'+(abaAtiva==='usuarios'?'active':'')+'" data-action="set-tab" data-tab="usuarios">Usuários</button>'
-      + '  <button class="'+(abaAtiva==='logs'?'active':'')+'" data-action="set-tab" data-tab="logs">Logs</button>'
-      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+      + '  <button class="'+(abaAtiva==='logs'?'active':'')+'" data-action="set-tab" data-tab="logs">Logs do Sistema</button>'
       + '</div>'
-      + (abaAtiva==='solicitacoes' ? renderVisaoLider() : (abaAtiva==='central' ? renderVisaoCentral() : (abaAtiva==='audit_presencial' ? renderPainelAuditorias('presencial') : renderVisaoDiretoria())));
-  }
-
-  if(usuarioLogado.tag === "Supervisão" && usuarioLogado.tipoSupervisao === "operacao"){
-    return ''
-      + '<div class="nav-tabs">'
-      + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Visão Operacional</button>'
-      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditorias Presenciais (12 Meses)</button>'
-      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
-      + '</div>'
-      + (abaAtiva==='audit_presencial' ? renderPainelAuditorias('presencial') : renderVisaoLider());
-  }
-
-  if(usuarioLogado.tag === "Supervisão" && usuarioLogado.tipoSupervisao === "administrativa"){
-    return ''
-      + '<div class="nav-tabs">'
-      + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Visão Administrativa</button>'
-      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditorias Adm (12 Meses)</button>'
-      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
-      + '</div>'
-      + (abaAtiva==='audit_adm' ? renderPainelAuditorias('adm') : renderVisaoCentral());
+      + (abaAtiva==='solicitacoes' ? renderVisaoLider() : (abaAtiva==='central' ? renderVisaoCentral() : renderVisaoDiretoria()));
   }
 
   if(usuarioLogado.tag === "Líder"){
     return renderVisaoLider();
   }
 
-  if(usuarioLogado.tag === "Central"){
-    return ''
-      + '<div class="nav-tabs">'
-      + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Central de Atendimento</button>'
-      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
-      + '</div>'
-      + (abaAtiva==='perfil' ? ''
-      + '<div class="card" style="max-width:500px;margin:0 auto;">'
-      + '  <h2>Editar Meu Perfil</h2>'
-      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
-      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
-      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
-      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
-      + '</div>' : renderVisaoCentral());
+  if(usuarioLogado.tag === "Central" || usuarioLogado.tag === "Supervisão"){
+    return renderVisaoCentral();
   }
 }
 
@@ -921,57 +773,6 @@ document.addEventListener('click', function(e){
     render();
   } else if(action === 'criar-solicitacao'){
     criarSolicitacao();
-  } else if(action === 'save-loja'){
-    if(novaLojaNome.trim()){
-      lojas.push(novaLojaNome.trim());
-      initAuditorias();
-      novaLojaNome = "";
-      saveData();
-      render();
-    }
-  } else if(action === 'delete-loja'){
-    const idx = parseInt(btn.getAttribute('data-idx'));
-    if(confirm('Excluir loja?')){
-      lojas.splice(idx,1);
-      saveData();
-      render();
-    }
-  } else if(action === 'save-user'){
-    const payload = {
-      usuario: novoUsuarioObj.usuario.trim(),
-      senha: novoUsuarioObj.senha.trim(),
-      tag: novoUsuarioObj.tag,
-      nome: novoUsuarioObj.nome.trim(),
-      lojasAcesso: novoUsuarioObj.tag === "Líder" ? [...novoUsuarioObj.lojasAcesso] : [],
-      setoresAcesso: novoUsuarioObj.tag === "Central" ? [...novoUsuarioObj.setoresAcesso] : [],
-      tipoSupervisao: novoUsuarioObj.tag === "Supervisão" ? novoUsuarioObj.tipoSupervisao : ""
-    };
-    if(usuarioEdicaoIndex !== null) usuarios[usuarioEdicaoIndex] = payload;
-    else usuarios.push(payload);
-    
-    usuarioEdicaoIndex = null;
-    novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
-    saveData();
-    render();
-  } else if(action === 'edit-user'){
-    const idx = parseInt(btn.getAttribute('data-idx'));
-    usuarioEdicaoIndex = idx;
-    const u = usuarios[idx];
-    novoUsuarioObj = {usuario:u.usuario, senha:u.senha, tag:u.tag, nome:u.nome, lojasAcesso:[...u.lojasAcesso], setoresAcesso:[...u.setoresAcesso], tipoSupervisao:u.tipoSupervisao||"operacao"};
-    render();
-  } else if(action === 'delete-user'){
-    const idx = parseInt(btn.getAttribute('data-idx'));
-    if(confirm('Excluir usuário?')){
-      usuarios.splice(idx,1);
-      saveData();
-      render();
-    }
-  } else if(action === 'salvar-meu-perfil'){
-    salvarMeuPerfil(
-      document.getElementById('perfil-nome-input').value,
-      document.getElementById('perfil-login-input').value,
-      document.getElementById('perfil-senha-input').value
-    );
   } else if(action === 'mudar-status'){
     mudarStatus(btn.getAttribute('data-id'), btn.getAttribute('data-status'));
   } else if(action === 'responder'){
@@ -998,52 +799,6 @@ document.addEventListener('change', function(e){
   } else if(e.target.id === 'filtro-setor-select'){
     filtroSetor = e.target.value;
     render();
-  } else if(e.target.id === 'user-tag-select'){
-    novoUsuarioObj.tag = e.target.value;
-    render();
-  } else if(e.target.id === 'user-supervision-select'){
-    novoUsuarioObj.tipoSupervisao = e.target.value;
-  } else if(e.target.hasAttribute('data-audit-mes')){
-    const mesIdx = parseInt(e.target.getAttribute('data-audit-mes'));
-    const tipo = e.target.getAttribute('data-audit-tipo');
-    const lj = e.target.getAttribute('data-loja');
-    
-    if(!auditoriasStore[lj]) auditoriasStore[lj] = {};
-    if(tipo === 'presencial'){
-      if(!auditoriasStore[lj].notasPresenciais) auditoriasStore[lj].notasPresenciais = Array(12).fill(0);
-      auditoriasStore[lj].notasPresenciais[mesIdx] = parseFloat(e.target.value) || 0;
-    } else {
-      if(!auditoriasStore[lj].notasAdm) auditoriasStore[lj].notasAdm = Array(12).fill(0);
-      auditoriasStore[lj].notasAdm[mesIdx] = parseFloat(e.target.value) || 0;
-    }
-    registrarLog("Atualizou nota do mês "+MESES[mesIdx]+" ("+tipo+") para a loja "+lj);
-    saveData();
-  } else if(e.target.hasAttribute('data-audit-file')){
-    const tipo = e.target.getAttribute('data-audit-file');
-    const lj = e.target.getAttribute('data-loja');
-    const file = e.target.files[0];
-    if(file){
-      if(!auditoriasStore[lj]) auditoriasStore[lj] = {};
-      if(tipo === 'presencial') auditoriasStore[lj].arquivoPresencial = file.name;
-      else auditoriasStore[lj].arquivoAdm = file.name;
-      registrarLog("Enviou arquivo de auditoria " + tipo + " para a loja " + lj);
-      saveData();
-      render();
-    }
-  } else if(e.target.hasAttribute('data-user-loja')){
-    const l = e.target.getAttribute('data-user-loja');
-    if(e.target.checked){
-      if(!novoUsuarioObj.lojasAcesso.includes(l)) novoUsuarioObj.lojasAcesso.push(l);
-    } else {
-      novoUsuarioObj.lojasAcesso = novoUsuarioObj.lojasAcesso.filter(item => item !== l);
-    }
-  } else if(e.target.hasAttribute('data-user-setor')){
-    const s = e.target.getAttribute('data-user-setor');
-    if(e.target.checked){
-      if(!novoUsuarioObj.setoresAcesso.includes(s)) novoUsuarioObj.setoresAcesso.push(s);
-    } else {
-      novoUsuarioObj.setoresAcesso = novoUsuarioObj.setoresAcesso.filter(item => item !== s);
-    }
   } else if(e.target.id === 'imagem-input'){
     const file = e.target.files[0];
     if(file){
@@ -1061,10 +816,6 @@ document.addEventListener('input', function(e){
     render();
   } else if(e.target.id === 'titulo-input') novaSolicitacao.titulo = e.target.value;
   else if(e.target.id === 'descricao-input') novaSolicitacao.descricao = e.target.value;
-  else if(e.target.id === 'nova-loja-input') novaLojaNome = e.target.value;
-  else if(e.target.id === 'user-nome-input') novoUsuarioObj.nome = e.target.value;
-  else if(e.target.id === 'user-login-input') novoUsuarioObj.usuario = e.target.value;
-  else if(e.target.id === 'user-pass-input') novoUsuarioObj.senha = e.target.value;
 });
 
 document.addEventListener('keydown', function(e){
@@ -1075,7 +826,6 @@ document.addEventListener('keydown', function(e){
 
 (async function init(){
   await fetchUserIP();
-  await loadData();
   render();
 })();
 </script>
