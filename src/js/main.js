@@ -230,6 +230,19 @@ async function salvarUsuarioAdmin() {
   const nome = novoUsuarioObj.nome.trim();
 
   try {
+    // Checagem prévia: evita chamar o Auth se o e-mail já está cadastrado
+    // na nossa própria tabela de perfis.
+    const { data: existente } = await supabaseClient
+      .from('usuarios')
+      .select('id')
+      .eq('email', emailLimpo)
+      .maybeSingle();
+
+    if (existente) {
+      alert("Já existe um usuário cadastrado com o e-mail " + emailLimpo + ".");
+      return;
+    }
+
     // Cria um cliente temporário sem afetar a sessão atual da Diretoria.
     // Reaproveita a URL/chave já usadas pelo cliente principal (evita
     // depender de constantes que não existem neste arquivo).
@@ -253,6 +266,15 @@ async function salvarUsuarioAdmin() {
 
     if (!authData.user) {
       alert("Não foi possível gerar o usuário no Auth.");
+      return;
+    }
+
+    // Quando o e-mail já existe (e a confirmação de e-mail está ativa),
+    // o Supabase não retorna erro — só devolve `identities` vazio, pra
+    // não revelar que a conta já existe. Sem checar isso, o passo
+    // seguinte sobrescreveria o perfil de quem já estava cadastrado.
+    if (Array.isArray(authData.user.identities) && authData.user.identities.length === 0) {
+      alert("Esse e-mail já está cadastrado no sistema de autenticação.");
       return;
     }
 
