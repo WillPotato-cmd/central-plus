@@ -23,8 +23,25 @@ let auditoriasStore = {};
 let logs = [];
 let usuarioLogado = null;
 let loginErro = "";
+let loginInfo = "";
+let viewAuth = "login"; // 'login' | 'esqueci' | 'redefinir'
 let userIP = "Buscando IP...";
 let realtimeChannel = null;
+
+// Registrado o quanto antes: se a pessoa chegou aqui através do link de
+// recuperação de senha do e-mail, o Supabase detecta o token na própria URL
+// e dispara PASSWORD_RECOVERY assim que o cliente termina de inicializar.
+if (supabaseClient) {
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      usuarioLogado = null;
+      viewAuth = 'redefinir';
+      loginErro = "";
+      loginInfo = "";
+      render();
+    }
+  });
+}
 
 let abaAtiva = "dashboard";
 let lojaAtual = "";
@@ -223,6 +240,8 @@ function getSetoresPermitidos(user){
 
 async function autenticar(emailInput, passInput) {
   try {
+    loginErro = "";
+    loginInfo = "";
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email: emailInput.trim(),
       password: passInput.trim()
@@ -281,9 +300,76 @@ async function logout() {
   pararRealtime();
   if (supabaseClient) await supabaseClient.auth.signOut();
   usuarioLogado = null;
+  viewAuth = "login";
+  loginErro = "";
+  loginInfo = "";
   solicitacoes = [];
   logs = [];
   render();
+}
+
+async function enviarRecuperacaoSenha(email){
+  const emailLimpo = (email || '').trim().toLowerCase();
+  if(!emailLimpo){
+    loginErro = "Informe seu e-mail para recuperar a senha.";
+    loginInfo = "";
+    render();
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(emailLimpo, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      loginErro = "Não foi possível enviar o e-mail de recuperação: " + error.message;
+      loginInfo = "";
+    } else {
+      loginErro = "";
+      // Mensagem genérica de propósito: não confirma se aquele e-mail existe
+      // no sistema, pra não facilitar descoberta de contas cadastradas.
+      loginInfo = "Se esse e-mail estiver cadastrado, você vai receber um link para redefinir a senha em instantes.";
+    }
+  } catch (e) {
+    console.error("Erro ao solicitar recuperação de senha:", e);
+    loginErro = "Erro ao conectar com o servidor.";
+    loginInfo = "";
+  }
+  render();
+}
+
+async function redefinirSenha(novaSenha, confirmarSenha){
+  if(!novaSenha || novaSenha.length < 6){
+    loginErro = "A nova senha precisa ter pelo menos 6 caracteres.";
+    render();
+    return;
+  }
+  if(novaSenha !== confirmarSenha){
+    loginErro = "As senhas não coincidem.";
+    render();
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+
+    if (error) {
+      loginErro = "Não foi possível redefinir a senha: " + error.message;
+      render();
+      return;
+    }
+
+    await supabaseClient.auth.signOut();
+    viewAuth = "login";
+    loginErro = "";
+    loginInfo = "Senha redefinida com sucesso! Faça login com a nova senha.";
+    render();
+  } catch (e) {
+    console.error("Erro inesperado ao redefinir senha:", e);
+    loginErro = "Erro inesperado ao redefinir a senha.";
+    render();
+  }
 }
 
 async function salvarUsuarioAdmin() {
@@ -652,15 +738,46 @@ function renderSearchPaginationBar(totalItems, perPage = ITEMS_PER_PAGE){
 }
 
 function renderLogin(){
+  if(viewAuth === 'esqueci'){
+    return ''
+      + '<div class="login-wrapper">'
+      + '  <div class="login-card">'
+      + '    <h2>Recuperar senha</h2>'
+      + '    <p>Informe seu e-mail corporativo. Se ele estiver cadastrado, você vai receber um link para criar uma nova senha.</p>'
+      + (loginErro ? '<div class="error-msg">'+esc(loginErro)+'</div>' : '')
+      + (loginInfo ? '<div class="info-msg">'+esc(loginInfo)+'</div>' : '')
+      + '    <div class="field"><label>E-mail Corporativo</label><input id="recover-email" type="email" placeholder="seuemail@empresa.com"/></div>'
+      + '    <button class="submit-btn" data-action="enviar-recuperacao">Enviar link de recuperação</button>'
+      + '    <button class="submit-btn" style="background:#fff;color:var(--ink);border:1.5px solid var(--line);margin-top:8px;" data-action="voltar-login">Voltar ao login</button>'
+      + '  </div>'
+      + '</div>';
+  }
+
+  if(viewAuth === 'redefinir'){
+    return ''
+      + '<div class="login-wrapper">'
+      + '  <div class="login-card">'
+      + '    <h2>Nova senha</h2>'
+      + '    <p>Defina uma nova senha para a sua conta.</p>'
+      + (loginErro ? '<div class="error-msg">'+esc(loginErro)+'</div>' : '')
+      + '    <div class="field"><label>Nova senha</label><input id="nova-senha-input" type="password" placeholder="Mínimo 6 caracteres"/></div>'
+      + '    <div class="field"><label>Confirmar nova senha</label><input id="confirmar-senha-input" type="password"/></div>'
+      + '    <button class="submit-btn" data-action="redefinir-senha">Salvar nova senha</button>'
+      + '  </div>'
+      + '</div>';
+  }
+
   return ''
     + '<div class="login-wrapper">'
     + '  <div class="login-card">'
     + '    <h2>Central+</h2>'
     + '    <p>Central de Solicitações e Operações</p>'
     + (loginErro ? '<div class="error-msg">'+esc(loginErro)+'</div>' : '')
+    + (loginInfo ? '<div class="info-msg">'+esc(loginInfo)+'</div>' : '')
     + '    <div class="field"><label>E-mail Corporativo</label><input id="login-user" type="email" placeholder="seuemail@empresa.com"/></div>'
     + '    <div class="field"><label>Senha</label><input id="login-pass" type="password" placeholder="Sua senha"/></div>'
     + '    <button class="submit-btn" data-action="login">Entrar</button>'
+    + '    <button class="submit-btn" style="background:#fff;color:var(--ink);border:1.5px solid var(--line);margin-top:8px;font-size:0.82rem;padding:8px;" data-action="ir-esqueci-senha">Esqueci minha senha</button>'
     + '  </div>'
     + '</div>';
 }
@@ -1034,6 +1151,21 @@ document.addEventListener('click', function(e){
   
   if(action === 'login'){
     autenticar(document.getElementById('login-user').value, document.getElementById('login-pass').value);
+  } else if(action === 'ir-esqueci-senha'){
+    viewAuth = 'esqueci';
+    loginErro = ""; loginInfo = "";
+    render();
+  } else if(action === 'voltar-login'){
+    viewAuth = 'login';
+    loginErro = ""; loginInfo = "";
+    render();
+  } else if(action === 'enviar-recuperacao'){
+    enviarRecuperacaoSenha(document.getElementById('recover-email').value);
+  } else if(action === 'redefinir-senha'){
+    redefinirSenha(
+      document.getElementById('nova-senha-input').value,
+      document.getElementById('confirmar-senha-input').value
+    );
   } else if(action === 'logout'){
     logout();
   } else if(action === 'set-tab'){
@@ -1150,8 +1282,16 @@ document.addEventListener('input', function(e){
 });
 
 document.addEventListener('keydown', function(e){
-  if(e.key === 'Enter' && !usuarioLogado){
+  if(e.key !== 'Enter' || usuarioLogado) return;
+  if(viewAuth === 'login'){
     autenticar(document.getElementById('login-user').value, document.getElementById('login-pass').value);
+  } else if(viewAuth === 'esqueci'){
+    enviarRecuperacaoSenha(document.getElementById('recover-email').value);
+  } else if(viewAuth === 'redefinir'){
+    redefinirSenha(
+      document.getElementById('nova-senha-input').value,
+      document.getElementById('confirmar-senha-input').value
+    );
   }
 });
 
