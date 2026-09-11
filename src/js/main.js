@@ -488,7 +488,7 @@ function cancelarEdicaoUsuario(){
   render();
 }
 
-async function atualizarUsuarioAdmin(){
+async function atualizarUsuarioAdmin(novaSenhaOpcional){
   if(!usuarioEdicaoId) return;
   if(!novoUsuarioObj.nome.trim()){
     alert("Preencha o nome do usuário!");
@@ -512,6 +512,29 @@ async function atualizarUsuarioAdmin(){
     console.error("Erro ao atualizar usuário:", error);
     alert("Não foi possível salvar as alterações: " + error.message);
     return;
+  }
+
+  const senhaLimpa = (novaSenhaOpcional || '').trim();
+  if(senhaLimpa){
+    if(senhaLimpa.length < 6){
+      alert("Perfil salvo, mas a senha não foi alterada: precisa ter pelo menos 6 caracteres.");
+    } else {
+      try {
+        const { data: resultado, error: fnError } = await supabaseClient.functions.invoke('admin-set-password', {
+          body: { userId: usuarioEdicaoId, novaSenha: senhaLimpa }
+        });
+        if(fnError){
+          alert("Perfil salvo, mas não foi possível redefinir a senha: " + fnError.message);
+        } else if(resultado && resultado.error){
+          alert("Perfil salvo, mas não foi possível redefinir a senha: " + resultado.error);
+        } else {
+          await registrarLog("Redefiniu a senha do usuário " + usuarioEdicaoId);
+        }
+      } catch (e) {
+        console.error("Erro ao chamar admin-set-password:", e);
+        alert("Perfil salvo, mas houve um erro inesperado ao redefinir a senha.");
+      }
+    }
   }
 
   await registrarLog("Editou o usuário " + (novoUsuarioObj.usuario || usuarioEdicaoId));
@@ -1069,6 +1092,7 @@ function renderVisaoDiretoria(){
       + '    <h2>'+(emEdicao ? 'Editar Usuário' : 'Cadastrar Novo Usuário')+'</h2>'
       + '    <div class="field"><label>Nome Completo</label><input id="user-nome-input" value="'+esc(novoUsuarioObj.nome)+'"/></div>'
       + '    <div class="field"><label>E-mail Corporativo (Login)</label><input id="user-login-input" type="email" value="'+esc(novoUsuarioObj.usuario)+'" '+(emEdicao?'disabled':'')+'/></div>'
+      + (emEdicao ? '    <div class="field"><label>Nova senha (deixe em branco para manter a atual)</label><input id="user-reset-senha-input" type="password" placeholder="Mínimo 6 caracteres"/></div>' : '')
       + (emEdicao ? '' : '    <div class="field"><label>Senha Inicial</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>')
       + '    <div class="field"><label>Tag (Função)</label>'
       + '      <select id="user-tag-select">'
@@ -1199,7 +1223,8 @@ document.addEventListener('click', function(e){
   } else if(action === 'editar-usuario'){
     iniciarEdicaoUsuario(btn.getAttribute('data-id'));
   } else if(action === 'salvar-edicao-usuario'){
-    atualizarUsuarioAdmin();
+    const senhaInput = document.getElementById('user-reset-senha-input');
+    atualizarUsuarioAdmin(senhaInput ? senhaInput.value : '');
   } else if(action === 'cancelar-edicao-usuario'){
     cancelarEdicaoUsuario();
   } else if(action === 'toggle-ativo-usuario'){
