@@ -23,6 +23,7 @@ let logs = [];
 let usuarioLogado = null;
 let loginErro = "";
 let userIP = "Buscando IP...";
+let realtimeChannel = null;
 
 let abaAtiva = "dashboard";
 let lojaAtual = "";
@@ -105,6 +106,32 @@ function nextId(){
   return "SOL-" + String(n).padStart(4,'0');
 }
 
+function iniciarRealtime(){
+  if(!supabaseClient || realtimeChannel) return;
+  realtimeChannel = supabaseClient
+    .channel('solicitacoes-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, (payload) => {
+      if(payload.eventType === 'INSERT'){
+        if(!solicitacoes.find(s => s.id === payload.new.id)){
+          solicitacoes = [payload.new, ...solicitacoes];
+        }
+      } else if(payload.eventType === 'UPDATE'){
+        solicitacoes = solicitacoes.map(s => s.id === payload.new.id ? payload.new : s);
+      } else if(payload.eventType === 'DELETE'){
+        solicitacoes = solicitacoes.filter(s => s.id !== payload.old.id);
+      }
+      if(usuarioLogado) render();
+    })
+    .subscribe();
+}
+
+function pararRealtime(){
+  if(realtimeChannel && supabaseClient){
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+}
+
 function getLojasPermitidas(user){
   if(!user) return [];
   if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipo_supervisao === "operacao")){
@@ -166,6 +193,7 @@ async function autenticar(emailInput, passInput) {
     
     await registrarLog("Realizou Login via Auth");
     await loadData();
+    iniciarRealtime();
     render();
   } catch (err) {
     console.error("Erro na autenticação:", err);
@@ -176,6 +204,7 @@ async function autenticar(emailInput, passInput) {
 
 async function logout() {
   if (usuarioLogado) await registrarLog("Realizou Logout");
+  pararRealtime();
   if (supabaseClient) await supabaseClient.auth.signOut();
   usuarioLogado = null;
   solicitacoes = [];
@@ -194,8 +223,10 @@ async function salvarUsuarioAdmin() {
   const nome = novoUsuarioObj.nome.trim();
 
   try {
-    // Cria um cliente temporário sem afetar a sessão atual da Diretoria
-    const tempSupabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    // Cria um cliente temporário sem afetar a sessão atual da Diretoria.
+    // Reaproveita a URL/chave já usadas pelo cliente principal (evita
+    // depender de constantes que não existem neste arquivo).
+    const tempSupabase = supabase.createClient(supabaseClient.supabaseUrl, supabaseClient.supabaseKey, {
       auth: { persistSession: false }
     });
 
@@ -254,8 +285,8 @@ async function salvarUsuarioAdmin() {
 
 async function criarSolicitacao(){
   if(!novaSolicitacao.titulo.trim()) return;
-  const s = {
-    id: nextId(),
+
+  const payload = {
     loja: lojaAtual,
     setor: novaSolicitacao.setor,
     titulo: novaSolicitacao.titulo.trim(),
@@ -268,12 +299,34 @@ async function criarSolicitacao(){
     criado_em: new Date().toISOString(),
     timestamp: Date.now()
   };
-  solicitacoes = [s, ...solicitacoes];
-  novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
-  await registrarLog("Criou a solicitação " + s.id + " para " + s.loja);
-  await saveData('solicitacoes', s);
-  abaAtiva = "solicitacoes";
-  render();
+
+  try {
+    // Não enviamos mais o `id` — o banco gera "SOL-000X" sozinho
+    // (ver gatilho gerar_id_solicitacao no supabase_rls_e_ids.sql),
+    // evitando colisão quando duas pessoas criam ao mesmo tempo.
+    const { data, error } = await supabaseClient
+      .from('solicitacoes')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erro ao criar solicitação:", error);
+      alert("Não foi possível enviar a solicitação: " + error.message);
+      return;
+    }
+
+    if(!solicitacoes.find(s => s.id === data.id)){
+      solicitacoes = [data, ...solicitacoes];
+    }
+    novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+    await registrarLog("Criou a solicitação " + data.id + " para " + data.loja);
+    abaAtiva = "solicitacoes";
+    render();
+  } catch (err) {
+    console.error("Erro inesperado ao criar solicitação:", err);
+    alert("Erro inesperado ao enviar a solicitação.");
+  }
 }
 
 async function mudarStatus(id, novoStatus){
