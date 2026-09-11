@@ -142,11 +142,10 @@
 </head>
 <body>
 <div class="app" id="app">
-  <div class="loading">Carregando ambiente seguro...</div>
+  <div class="loading">Iniciando ambiente seguro Central+…</div>
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DO SUPABASE ---
 const SUPABASE_URL = 'https://wkxwiwnzpdvzdatrupdu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_LwMpxO--FDd58rznViqlDA_f3a_R86B';
 let supabaseClient = null;
@@ -155,7 +154,6 @@ if (typeof supabase !== 'undefined') {
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// HIGIENIZAÇÃO DE TEXTO CONTRA XSS
 function esc(str) {
   if (str === null || str === undefined) return '';
   const stringified = String(str);
@@ -180,6 +178,7 @@ const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "O
 const STATUS_LABEL = { pendente: "Pendente", em_andamento: "Em andamento", aguardando: "Aguardando", concluido: "Concluído" };
 
 let lojas = [...LOJAS_PADRAO];
+let usuariosList = [];
 let solicitacoes = [];
 let auditoriasStore = {};
 let logs = [];
@@ -197,6 +196,9 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 5;
 
 let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+let novaLojaNome = "";
+let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
+let usuarioEdicaoIndex = null;
 
 async function fetchUserIP(){
   try{
@@ -221,18 +223,19 @@ function initAuditorias(){
   });
 }
 
-// CARREGAR DADOS VIA SUPABASE RLS
 async function loadData(){
   if (supabaseClient && usuarioLogado) {
     try {
-      // O Supabase filtra automaticamente as linhas que este usuário tem acesso via RLS
       const { data: solData } = await supabaseClient.from('solicitacoes').select('*');
       if (solData) solicitacoes = solData;
 
       const { data: logsData } = await supabaseClient.from('logs').select('*').order('id', { ascending: false });
       if (logsData) logs = logsData;
+
+      const { data: usrData } = await supabaseClient.from('usuarios').select('*');
+      if (usrData) usuariosList = usrData;
     } catch (e) {
-      console.error("Erro ao carregar dados autorizados:", e);
+      console.error("Erro ao carregar banco:", e);
     }
   }
   initAuditorias();
@@ -243,7 +246,7 @@ async function saveData(tabela, payload){
     try {
       await supabaseClient.from(tabela).upsert(payload);
     } catch(e) {
-      console.error("Erro ao persistir no Supabase:", e);
+      console.error("Erro ao salvar no banco:", e);
     }
   }
 }
@@ -286,7 +289,6 @@ function getSetoresPermitidos(user){
   return [];
 }
 
-// AUTENTICAÇÃO REAL VIA SUPABASE AUTH
 async function autenticar(emailInput, passInput) {
   try {
     const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -300,33 +302,37 @@ async function autenticar(emailInput, passInput) {
       return;
     }
 
-    // Busca perfil correspondente ao UID na tabela usuarios
-    const { data: perfil, error: perfilError } = await supabaseClient
+    const { data: perfil } = await supabaseClient
       .from('usuarios')
       .select('*')
       .eq('id', data.user.id)
       .single();
 
-    if(perfilError || !perfil){
-      loginErro = "Perfil de usuário não encontrado no banco.";
-      await supabaseClient.auth.signOut();
-      render();
-      return;
+    if(!perfil){
+      // Caso perfil ainda não tenha sido populado no banco
+      usuarioLogado = {
+        id: data.user.id,
+        nome: data.user.email.split('@')[0],
+        email: data.user.email,
+        tag: 'Diretoria',
+        lojas_acesso: [],
+        setores_acesso: []
+      };
+    } else {
+      usuarioLogado = perfil;
     }
 
-    usuarioLogado = perfil;
     loginErro = "";
-    
-    const permitidas = getLojasPermitidas(perfil);
+    const permitidas = getLojasPermitidas(usuarioLogado);
     lojaAtual = permitidas.length ? permitidas[0] : (lojas[0] || "");
     abaAtiva = "dashboard";
     
-    await registrarLog("Realizou Login via Supabase Auth");
+    await registrarLog("Realizou Login via Auth");
     await loadData();
     render();
   } catch (err) {
     console.error("Erro na autenticação:", err);
-    loginErro = "Erro de conexão com o servidor de autenticação.";
+    loginErro = "Erro ao conectar com o servidor.";
     render();
   }
 }
@@ -646,6 +652,34 @@ function renderVisaoCentral(){
     + '<div class="kanban">'+colsHTML+'</div>';
 }
 
+function renderPainelAuditorias(tipo){
+  const titulo = tipo === 'presencial' ? 'Auditorias Presenciais Mensais (Supervisão Operacional)' : 'Auditorias Administrativas Mensais (Diretoria)';
+  let headerMeses = MESES.map(m => '<th style="text-align:center;">'+m.toUpperCase()+'</th>').join('');
+
+  let rows = lojas.map(loja => {
+    const data = auditoriasStore[loja] || {};
+    const notasList = (tipo === 'presencial' ? data.notasPresenciais : data.notasAdm) || Array(12).fill(0);
+    const arqAtual = tipo === 'presencial' ? data.arquivoPresencial : data.arquivoAdm;
+
+    let inputsMeses = MESES.map((m, idx) => ''
+      + '<td style="padding:4px;"><input style="width:45px;text-align:center;padding:4px 2px;font-size:0.78rem;" data-audit-mes="'+idx+'" data-audit-tipo="'+tipo+'" data-loja="'+esc(loja)+'" value="'+esc(notasList[idx] !== undefined ? notasList[idx] : '')+'"/></td>'
+    ).join('');
+
+    return ''
+      + '<tr>'
+      + '  <td><strong>'+esc(loja)+'</strong></td>'
+      +    inputsMeses
+      + '  <td><input type="file" style="font-size:0.75rem;" data-audit-file="'+tipo+'" data-loja="'+esc(loja)+'"/> <br><small>'+esc(arqAtual || 'Nenhum enviado')+'</small></td>'
+      + '</tr>';
+  }).join('');
+
+  return ''
+    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">'+titulo+'</h2>'
+    + '<div class="table-responsive">'
+    + '  <table class="table-list"><thead><tr><th>LOJA</th>'+headerMeses+'<th>DOCUMENTO ANEXO</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '</div>';
+}
+
 function renderLogsSistema(){
   const q = searchTerm.toLowerCase();
   let filteredLogs = logs.filter(l => 
@@ -707,8 +741,57 @@ function renderVisaoDiretoria(){
       + '</div>'
       + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin:24px 0 14px;">Desempenho por Unidade</h2>'
       + '<div class="store-summary-grid">'+storeCardsHTML+'</div>';
+  } else if(abaAtiva === 'audit_adm'){
+    return renderPainelAuditorias('adm');
+  } else if(abaAtiva === 'audit_presencial'){
+    return renderPainelAuditorias('presencial');
   } else if(abaAtiva === 'logs'){
     return renderLogsSistema();
+  } else if(abaAtiva === 'lojas'){
+    let filteredLojas = lojas.filter(l => l.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredLojas.map((l, idx) => ''
+      + '<tr>'
+      + '  <td>'+esc(l)+'</td>'
+      + '  <td>'+solicitacoes.filter(s=>s.loja===l).length+' solicitações</td>'
+      + '  <td class="table-actions">'
+      + '    <button class="btn-sm danger" data-action="delete-loja" data-idx="'+idx+'">Excluir</button>'
+      + '  </td>'
+      + '</tr>'
+    ).join('');
+
+    return ''
+      + '<div class="grid">'
+      + '  <div class="card">'
+      + '    <h2>Cadastrar Nova Loja</h2>'
+      + '    <div class="field"><label>Nome da Unidade</label><input id="nova-loja-input" value="'+esc(novaLojaNome)+'"/></div>'
+      + '    <button class="submit-btn" data-action="save-loja">Salvar Loja</button>'
+      + '  </div>'
+      + '  <div>'
+      +    renderSearchPaginationBar(filteredLojas.length, 8)
+      + '  <table class="table-list"><thead><tr><th>LOJA</th><th>HISTÓRICO</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
+      + '</div>';
+  } else if(abaAtiva === 'usuarios'){
+    let filteredUsers = usuariosList.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredUsers.map((u, idx) => ''
+      + '<tr>'
+      + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.email)+'</small></td>'
+      + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
+      + '</tr>'
+    ).join('');
+
+    return ''
+      + '<div>'
+      + '  <h2>Gestão de Usuários e Permissões</h2>'
+      +    renderSearchPaginationBar(filteredUsers.length, 8)
+      + '  <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>'
+      + '</div>';
+  } else if(abaAtiva === 'perfil'){
+    return ''
+      + '<div class="card" style="max-width:500px;margin:0 auto;">'
+      + '  <h2>Editar Meu Perfil</h2>'
+      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
+      + '  <div class="field"><label>E-mail</label><input id="perfil-email-input" disabled value="'+esc(usuarioLogado.email)+'"/></div>'
+      + '</div>';
   }
 }
 
@@ -717,9 +800,14 @@ function renderMainContent(){
     return ''
       + '<div class="nav-tabs">'
       + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Balanço Geral</button>'
+      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditoria Adm (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditoria Presencial (12 Meses)</button>'
       + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Painel Central</button>'
       + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Visão Líderes</button>'
+      + '  <button class="'+(abaAtiva==='lojas'?'active':'')+'" data-action="set-tab" data-tab="lojas">Lojas</button>'
+      + '  <button class="'+(abaAtiva==='usuarios'?'active':'')+'" data-action="set-tab" data-tab="usuarios">Usuários</button>'
       + '  <button class="'+(abaAtiva==='logs'?'active':'')+'" data-action="set-tab" data-tab="logs">Logs do Sistema</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
       + '</div>'
       + (abaAtiva==='solicitacoes' ? renderVisaoLider() : (abaAtiva==='central' ? renderVisaoCentral() : renderVisaoDiretoria()));
   }
