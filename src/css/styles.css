@@ -38,6 +38,7 @@ select, input[type="text"], input[type="email"], input[type="password"] { font-f
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 5px; }
 .field input, .field select, .field textarea { width: 100%; font-family: 'IBM Plex Sans'; font-size: 0.92rem; padding: 9px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #FBFAF6; color: var(--ink); }
+.field input:disabled { opacity: 0.6; cursor: not-allowed; }
 .field textarea { resize: vertical; min-height: 64px; }
 
 .priority-row { display: flex; gap: 8px; }
@@ -70,6 +71,10 @@ select, input[type="text"], input[type="email"], input[type="password"] { font-f
 .table-list { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--line); min-width: 700px; }
 .table-list th, .table-list td { padding: 8px 10px; text-align: left; font-size: 0.82rem; border-bottom: 1px solid var(--line); }
 .table-list th { background: var(--paper-dark); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; }
+.table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-sm { font-size: 0.76rem; padding: 5px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); }
+.btn-sm:hover { background: var(--paper-dark); }
+.btn-sm.danger { color: var(--rust); border-color: var(--rust); }
 
 .slip { border: 1.5px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; position: relative; border-left: 5px solid var(--steel); }
 .slip.urgente { background: #FDF2F0; border-left-color: var(--rust); }
