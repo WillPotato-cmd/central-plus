@@ -40,6 +40,8 @@ select, input[type="text"], input[type="email"], input[type="password"] { font-f
 .field input, .field select, .field textarea { width: 100%; font-family: 'IBM Plex Sans'; font-size: 0.92rem; padding: 9px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #FBFAF6; color: var(--ink); }
 .field input:disabled { opacity: 0.6; cursor: not-allowed; }
 .field textarea { resize: vertical; min-height: 64px; }
+.checkbox-group { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; border: 1.5px solid var(--line); border-radius: 6px; background: #FBFAF6; }
+.checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; }
 
 .priority-row { display: flex; gap: 8px; }
 .priority-row button { flex: 1; padding: 8px 6px; border-radius: 6px; border: 1.5px solid var(--line); background: #FBFAF6; font-size: 0.8rem; cursor: pointer; color: var(--ink-soft); }
@@ -99,6 +101,16 @@ select, input[type="text"], input[type="email"], input[type="password"] { font-f
 .slip-actions button { font-size: 0.76rem; padding: 6px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); }
 .slip-actions button:hover { background: var(--paper-dark); }
 .slip-actions button.danger { color: var(--rust); border-color: var(--rust); }
+.resp-row { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
+.resp-row input { flex: 1; min-width: 120px; font-size: 0.8rem; padding: 6px 8px; border-radius: 6px; border: 1.5px solid var(--line); }
+.resp-row button { font-size: 0.76rem; padding: 6px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
+
+.history-box { background: #fff; border: 1.5px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.audit-score { font-size: 2rem; font-weight: 700; font-family: 'Fraunces', serif; color: var(--moss); }
+canvas { max-width: 100%; height: 250px; background: #fff; border: 1.5px solid var(--line); border-radius: 8px; padding: 10px; }
+.chart-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 0.78rem; }
+.chart-legend span { display: flex; align-items: center; gap: 6px; }
+.legend-box { width: 12px; height: 12px; border-radius: 3px; }
 
 .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 @media (max-width: 900px) { .kanban { grid-template-columns: 1fr 1fr; } }
