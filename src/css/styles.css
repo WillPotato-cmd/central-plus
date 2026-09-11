@@ -56,6 +56,7 @@ select, input[type="text"], input[type="email"], input[type="password"] { font-f
 .login-card h2 { font-family: 'Fraunces', serif; font-size: 1.5rem; margin: 0 0 6px; text-align: center; }
 .login-card p { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 20px; text-align: center; }
 .error-msg { color: var(--rust); font-size: 0.8rem; margin-bottom: 10px; text-align: center; }
+.info-msg { color: var(--moss); font-size: 0.8rem; margin-bottom: 10px; text-align: center; }
 
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .kpi-card { background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
