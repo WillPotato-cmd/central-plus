@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Central+ - Gestão & Auditoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#20291F;
+    --ink-soft:#5C6259;
+    --paper:#ECE6D8;
+    --paper-dark:#DED5C0;
+    --rust:#B4502E;
+    --mustard:#C99A3E;
+    --moss:#4B6B4F;
+    --steel:#49606B;
+    --line: rgba(32,41,31,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1180px;margin:0 auto;padding:20px 18px 60px;}
+
+  .topbar{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:3px solid var(--ink);
+    padding-bottom:14px;margin-bottom:22px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:2.1rem;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .brand span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;
+    color:var(--ink-soft);
+    letter-spacing:0.03em;
+  }
+  .user-info{
+    display:flex;align-items:center;gap:12px;
+    font-size:0.86rem;font-weight:500;
+  }
+  .logout-btn{
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);
+    font-family:'IBM Plex Sans';font-size:0.8rem;
+    padding:6px 12px;border-radius:6px;cursor:pointer;
+  }
+  .logout-btn:hover{background:var(--paper-dark);}
+
+  .nav-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1.5px solid var(--line);padding-bottom:10px;flex-wrap:wrap;}
+  .nav-tabs button{
+    border:none;background:transparent;font-family:'IBM Plex Sans';
+    font-size:0.9rem;font-weight:600;color:var(--ink-soft);padding:8px 14px;
+    border-radius:6px;cursor:pointer;
+  }
+  .nav-tabs button.active{background:var(--ink);color:var(--paper);}
+
+  .store-row{display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
+  .store-row label{font-size:0.82rem;color:var(--ink-soft);}
+  select, input[type="text"], input[type="password"]{
+    font-family:'IBM Plex Sans';font-size:0.92rem;
+    padding:7px 10px;border-radius:6px;border:1.5px solid var(--line);
+    background:#fff;color:var(--ink);
+  }
+
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
+  @media (max-width:760px){.grid{grid-template-columns:1fr;}}
+
+  .card{
+    background:#fff;border:1.5px solid var(--line);border-radius:10px;
+    padding:18px;margin-bottom:18px;
+  }
+  .card h2{
+    font-family:'Fraunces',serif;font-size:1.15rem;margin:0 0 14px;
+  }
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:0.78rem;color:var(--ink-soft);margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:'IBM Plex Sans';font-size:0.92rem;
+    padding:9px 10px;border-radius:6px;border:1.5px solid var(--line);
+    background:#FBFAF6;color:var(--ink);
+  }
+  .field textarea{resize:vertical;min-height:64px;}
+  .checkbox-group{display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto;padding:8px;border:1.5px solid var(--line);border-radius:6px;background:#FBFAF6;}
+  .checkbox-item{display:flex;align-items:center;gap:8px;font-size:0.84rem;}
+  
+  .priority-row{display:flex;gap:8px;}
+  .priority-row button{
+    flex:1;padding:8px 6px;border-radius:6px;border:1.5px solid var(--line);
+    background:#FBFAF6;font-size:0.8rem;cursor:pointer;color:var(--ink-soft);
+  }
+  .priority-row button.active[data-p="baixa"]{background:var(--moss);color:#fff;border-color:var(--moss);}
+  .priority-row button.active[data-p="normal"]{background:var(--steel);color:#fff;border-color:var(--steel);}
+  .priority-row button.active[data-p="urgente"]{background:var(--rust);color:#fff;border-color:var(--rust);}
+  .submit-btn{
+    width:100%;padding:11px;border:none;border-radius:6px;
+    background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans';
+    font-weight:600;font-size:0.92rem;cursor:pointer;margin-top:4px;
+  }
+  .submit-btn:hover{background:#0f1610;}
+
+  /* Login Card Styles */
+  .login-wrapper{
+    display:flex;justify-content:center;align-items:center;min-height:70vh;
+  }
+  .login-card{
+    background:#fff;border:1.5px solid var(--line);border-radius:12px;
+    padding:28px 24px;width:100%;max-width:380px;box-shadow:0 4px 12px rgba(0,0,0,0.03);
+  }
+  .login-card h2{
+    font-family:'Fraunces',serif;font-size:1.5rem;margin:0 0 6px;text-align:center;
+  }
+  .login-card p{
+    font-size:0.85rem;color:var(--ink-soft);margin:0 0 20px;text-align:center;
+  }
+  .error-msg{
+    color:var(--rust);font-size:0.8rem;margin-bottom:10px;text-align:center;
+  }
+
+  /* Executive Dashboard Styles */
+  .kpi-grid{
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;margin-bottom:24px;
+  }
+  .kpi-card{
+    background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:16px;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .kpi-title{font-size:0.75rem;color:var(--ink-soft);font-weight:500;}
+  .kpi-value{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:var(--ink);}
+
+  .store-summary-grid{
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:18px;margin-bottom:28px;
+  }
+  .store-card{
+    background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:18px;
+  }
+  .store-card-header{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;
+    border-bottom:1.5px solid var(--line);padding-bottom:8px;
+  }
+  .store-card-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;}
+  .progress-bar-bg{
+    background:var(--paper-dark);height:8px;border-radius:999px;overflow:hidden;margin-top:10px;
+  }
+  .progress-bar-fill{background:var(--moss);height:100%;transition:width 0.3s ease;}
+
+  .table-responsive{width:100%;overflow-x:auto;margin-top:10px;}
+  .table-list{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1.5px solid var(--line);min-width:700px;}
+  .table-list th, .table-list td{padding:8px 10px;text-align:left;font-size:0.82rem;border-bottom:1px solid var(--line);}
+  .table-list th{background:var(--paper-dark);font-family:'IBM Plex Mono',monospace;font-size:0.72rem;}
+  .table-actions{display:flex;gap:6px;}
+  .btn-sm{padding:4px 8px;font-size:0.75rem;border-radius:4px;border:1px solid var(--line);background:#fff;cursor:pointer;}
+  .btn-sm.danger{color:var(--rust);border-color:var(--rust);}
+
+  .slip{
+    border:1.5px solid var(--line);border-radius:8px;
+    padding:14px 16px;margin-bottom:12px;position:relative;
+    border-left:5px solid var(--steel);
+  }
+  .slip.urgente{background:#FDF2F0;border-left-color:var(--rust);}
+  .slip.normal{background:#F0F4F6;border-left-color:var(--steel);}
+  .slip.baixa{background:#F2F6F3;border-left-color:var(--moss);}
+
+  .slip-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .slip-id{
+    font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--ink-soft);
+    letter-spacing:0.03em;
+  }
+  .slip-title{font-weight:600;font-size:0.98rem;margin:3px 0 4px;}
+  .slip-meta{font-size:0.78rem;color:var(--ink-soft);margin-bottom:6px;}
+  .slip-desc{font-size:0.86rem;color:var(--ink);margin-bottom:8px;line-height:1.4;}
+  .slip-img{max-width:100%;height:auto;border-radius:6px;margin-top:6px;border:1px solid var(--line);}
+  .tag{
+    display:inline-block;font-size:0.7rem;font-weight:500;
+    padding:3px 9px;border-radius:999px;background:var(--paper-dark);color:var(--ink);
+    margin-right:6px;
+  }
+  .status-pill{
+    font-family:'IBM Plex Mono',monospace;font-size:0.7rem;font-weight:600;
+    padding:4px 10px;border-radius:999px;white-space:nowrap;
+  }
+  .status-pendente{background:#F4E6C8;color:#7A5A15;}
+  .status-em_andamento{background:#DCE6E9;color:#2F4A54;}
+  .status-aguardando{background:#EADEC9;color:#785317;}
+  .status-concluido{background:#DCE8DE;color:#2E4A33;}
+
+  .resposta{
+    margin-top:8px;padding:8px 10px;background:#FBFAF6;border-radius:6px;
+    font-size:0.82rem;color:var(--ink-soft);border:1px dashed var(--line);
+  }
+  .slip-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .slip-actions button{
+    font-size:0.76rem;padding:6px 10px;border-radius:6px;border:1.5px solid var(--line);
+    background:#fff;cursor:pointer;color:var(--ink);
+  }
+  .slip-actions button:hover{background:var(--paper-dark);}
+  .slip-actions button.danger{color:var(--rust);border-color:var(--rust);}
+  .resp-row{display:flex;gap:6px;width:100%;margin-top:6px;}
+  .resp-row input{
+    flex:1;min-width:120px;font-size:0.8rem;padding:6px 8px;border-radius:6px;
+    border:1.5px solid var(--line);
+  }
+  .resp-row button{font-size:0.76rem;padding:6px 10px;border-radius:6px;border:1.5px solid var(--line);background:#fff;cursor:pointer;}
+
+  .empty{
+    text-align:center;padding:40px 20px;color:var(--ink-soft);
+    font-size:0.9rem;border:1.5px dashed var(--line);border-radius:10px;
+  }
+
+  .kanban{display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;}
+  @media (max-width:900px){.kanban{grid-template-columns:1fr 1fr;}}
+  @media (max-width:550px){.kanban{grid-template-columns:1fr;}}
+  .col-head{
+    font-family:'Fraunces',serif;font-size:0.95rem;font-weight:600;
+    margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--ink);
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .col-head small{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--ink-soft);}
+  .filter-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  
+  .search-pagination-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    gap:12px;margin-bottom:16px;flex-wrap:wrap;
+    background:#fff;padding:10px 14px;border-radius:8px;border:1.5px solid var(--line);
+  }
+  .search-pagination-bar input{min-width:240px;}
+  .pagination-controls{display:flex;align-items:center;gap:8px;font-size:0.82rem;}
+  .pagination-controls button{
+    padding:4px 10px;border-radius:4px;border:1px solid var(--line);
+    background:#fff;cursor:pointer;font-family:'IBM Plex Sans';
+  }
+  .pagination-controls button:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .history-box{background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;}
+  .audit-score{font-size:2rem;font-weight:700;font-family:'Fraunces',serif;color:var(--moss);}
+  .loading{padding:60px 0;text-align:center;color:var(--ink-soft);}
+  canvas{max-width:100%;height:250px;background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:10px;}
+  
+  .chart-legend{display:flex;gap:16px;margin-top:8px;font-size:0.78rem;}
+  .chart-legend span{display:flex;align-items:center;gap:6px;}
+  .legend-box{width:12px;height:12px;border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading">Abrindo o Central+…</div>
+</div>
+
+<script>
+const LOJAS_PADRAO = [
+  "Potato Guará",
+  "Potato Pinda",
+  "Potato Matriz",
+  "Potato Via Vale",
+  "Potato Center Vale",
+  "Potato Vale Sul",
+  "Potato Jacareí",
+  "Kanpek Shopping",
+  "Kanpek Restaurante"
+];
+
+const SETORES_CENTRAL = [
+  "Recursos Humanos",
+  "Departamento Pessoal",
+  "Administrativo",
+  "Compras",
+  "Manutenção",
+  "Logistica",
+  "Marketing",
+  "TI"
+];
+
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+const STATUS_LABEL = {
+  pendente: "Pendente", 
+  em_andamento: "Em andamento", 
+  aguardando: "Aguardando", 
+  concluido: "Concluído"
+};
+
+let lojas = [...LOJAS_PADRAO];
+
+let usuarios = [
+  {usuario: "diretoria", senha: "123", tag: "Diretoria", nome: "Diretoria Executiva", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: ""},
+  {usuario: "lider", senha: "123", tag: "Líder", nome: "Líder de Loja", lojasAcesso: ["Potato Guará", "Potato Pinda"], setoresAcesso: [], tipoSupervisao: ""},
+  {usuario: "central", senha: "123", tag: "Central", nome: "Atendimento Central", lojasAcesso: [], setoresAcesso: ["Manutenção", "TI"], tipoSupervisao: ""},
+  {usuario: "super_op", senha: "123", tag: "Supervisão", nome: "Supervisão Operacional", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao"},
+  {usuario: "super_adm", senha: "123", tag: "Supervisão", nome: "Supervisão Administrativa", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "administrativa"}
+];
+
+let solicitacoes = [];
+let auditoriasStore = {};
+let logs = [];
+let usuarioLogado = null;
+let loginErro = "";
+let userIP = "Buscando IP...";
+
+let abaAtiva = "dashboard";
+let lojaAtual = "";
+let filtroLoja = "todas";
+let filtroSetor = "todos";
+
+let searchTerm = "";
+let currentPage = 1;
+const ITEMS_PER_PAGE = 5;
+
+let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+let novaLojaNome = "";
+let lojaEdicaoIndex = null;
+
+let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
+let usuarioEdicaoIndex = null;
+
+async function fetchUserIP(){
+  try{
+    let res = await fetch('https://api.ipify.org?format=json');
+    let data = await res.json();
+    userIP = data.ip;
+  }catch(e){
+    userIP = "127.0.0.1 (Local)";
+  }
+}
+
+// Inicialização com 12 meses de notas por loja
+function initAuditorias(){
+  LOJAS_PADRAO.forEach(l => {
+    if(!auditoriasStore[l]){
+      auditoriasStore[l] = {
+        arquivoPresencial: "Auditoria_Presencial_2026.pdf",
+        arquivoAdm: "Auditoria_Adm_2026.pdf",
+        notasPresenciais: [8.5, 8.8, 9.0, 9.1, 9.3, 9.4, 9.5, 9.2, 9.6, 9.4, 9.5, 9.7],
+        notasAdm: [8.0, 8.2, 8.5, 8.7, 8.9, 9.0, 9.2, 9.1, 9.3, 9.2, 9.4, 9.5]
+      };
+    }
+  });
+}
+
+async function loadData(){
+  try{
+    let dataSolicitacoes = localStorage.getItem('centralplus:solicitacoes_v4');
+    let dataLojas = localStorage.getItem('centralplus:lojas_v4');
+    let dataUsuarios = localStorage.getItem('centralplus:usuarios_v4');
+    let dataAuditorias = localStorage.getItem('centralplus:auditorias_v4');
+    let dataLogs = localStorage.getItem('centralplus:logs_v4');
+
+    if(dataSolicitacoes) solicitacoes = JSON.parse(dataSolicitacoes);
+    if(dataLojas) lojas = JSON.parse(dataLojas);
+    if(dataUsuarios) usuarios = JSON.parse(dataUsuarios);
+    if(dataAuditorias) auditoriasStore = JSON.parse(dataAuditorias);
+    if(dataLogs) logs = JSON.parse(dataLogs);
+
+    initAuditorias();
+  }catch(e){
+    console.error(e);
+    initAuditorias();
+  }
+}
+
+async function saveData(){
+  try{
+    localStorage.setItem('centralplus:solicitacoes_v4', JSON.stringify(solicitacoes));
+    localStorage.setItem('centralplus:lojas_v4', JSON.stringify(lojas));
+    localStorage.setItem('centralplus:usuarios_v4', JSON.stringify(usuarios));
+    localStorage.setItem('centralplus:auditorias_v4', JSON.stringify(auditoriasStore));
+    localStorage.setItem('centralplus:logs_v4', JSON.stringify(logs));
+  }catch(e){
+    console.error('Falha ao salvar', e);
+  }
+}
+
+function registrarLog(acao){
+  const item = {
+    data: new Date().toLocaleString('pt-BR'),
+    usuario: usuarioLogado ? usuarioLogado.nome + ' ('+usuarioLogado.tag+')' : 'Sistema',
+    ip: userIP,
+    acao: acao
+  };
+  logs = [item, ...logs];
+  saveData();
+}
+
+function nextId(){
+  const n = solicitacoes.length + 1;
+  return "SOL-" + String(n).padStart(4,'0');
+}
+
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getLojasPermitidas(user){
+  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipoSupervisao === "operacao")){
+    return lojas;
+  }
+  if(user.tag === "Líder"){
+    return user.lojasAcesso || [];
+  }
+  return [];
+}
+
+function getSetoresPermitidos(user){
+  if(user.tag === "Diretoria" || (user.tag === "Supervisão" && user.tipoSupervisao === "administrativa")){
+    return SETORES_CENTRAL;
+  }
+  if(user.tag === "Central"){
+    return user.setoresAcesso || [];
+  }
+  return [];
+}
+
+function autenticar(userInput, passInput){
+  const user = usuarios.find(u => u.usuario === userInput.trim() && u.senha === passInput.trim());
+  if(user){
+    usuarioLogado = user;
+    loginErro = "";
+    const permitidas = getLojasPermitidas(user);
+    lojaAtual = permitidas.length ? permitidas[0] : (lojas[0] || "");
+    abaAtiva = "dashboard";
+    searchTerm = "";
+    currentPage = 1;
+    registrarLog("Realizou Login");
+  } else {
+    loginErro = "Usuário ou senha inválidos.";
+  }
+  render();
+}
+
+function logout(){
+  if(usuarioLogado) registrarLog("Realizou Logout");
+  usuarioLogado = null;
+  loginErro = "";
+  render();
+}
+
+async function criarSolicitacao(){
+  if(!novaSolicitacao.titulo.trim()) return;
+  const s = {
+    id: nextId(),
+    loja: lojaAtual,
+    setor: novaSolicitacao.setor,
+    titulo: novaSolicitacao.titulo.trim(),
+    descricao: novaSolicitacao.descricao.trim(),
+    prioridade: novaSolicitacao.prioridade,
+    imagem: novaSolicitacao.imagem || "",
+    status: "pendente",
+    resposta: "",
+    criadoEm: new Date().toLocaleDateString('pt-BR'),
+    timestamp: Date.now()
+  };
+  solicitacoes = [s, ...solicitacoes];
+  novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+  registrarLog("Criou a solicitação " + s.id + " para " + s.loja);
+  await saveData();
+  abaAtiva = "solicitacoes";
+  render();
+}
+
+async function mudarStatus(id, novoStatus){
+  solicitacoes = solicitacoes.map(s => s.id===id ? Object.assign({}, s, {status:novoStatus}) : s);
+  registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
+  await saveData();
+  render();
+}
+
+async function responder(id, texto){
+  if(!texto.trim()) return;
+  solicitacoes = solicitacoes.map(s => s.id===id ? Object.assign({}, s, {resposta:texto.trim()}) : s);
+  registrarLog("Respondeu a solicitação " + id);
+  await saveData();
+  render();
+}
+
+async function excluirSolicitacao(id){
+  if(confirm("Deseja remover esta solicitação?")){
+    solicitacoes = solicitacoes.filter(s => s.id !== id);
+    registrarLog("Excluiu a solicitação " + id);
+    await saveData();
+    render();
+  }
+}
+
+async function salvarMeuPerfil(nome, login, senha){
+  if(!nome.trim() || !login.trim() || !senha.trim()) return;
+  usuarioLogado.nome = nome.trim();
+  usuarioLogado.usuario = login.trim();
+  usuarioLogado.senha = senha.trim();
+  
+  const idx = usuarios.findIndex(u => u.usuario === usuarioLogado.usuario);
+  if(idx !== -1) usuarios[idx] = Object.assign({}, usuarios[idx], usuarioLogado);
+  
+  registrarLog("Atualizou dados de perfil próprio");
+  await saveData();
+  alert("Perfil atualizado com sucesso!");
+  render();
+}
+
+// RENDERIZADOR DO GRÁFICO DUPLO (CANVAS NATIVO)
+function drawChartCanvas(){
+  setTimeout(() => {
+    const canvas = document.getElementById('chartCanvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const storeData = auditoriasStore[lojaAtual] || {};
+    const dataPresencial = storeData.notasPresenciais || Array(12).fill(0);
+    const dataAdm = storeData.notasAdm || Array(12).fill(0);
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    
+    // Linhas de Grade Verticais e Horizontais
+    ctx.strokeStyle = "#ECE6D8";
+    ctx.lineWidth = 1;
+    for(let i=1; i<=4; i++){
+      let y = (canvas.height/5)*i;
+      ctx.beginPath(); ctx.moveTo(35, y); ctx.lineTo(canvas.width-15, y); ctx.stroke();
+    }
+
+    const stepX = (canvas.width - 55) / 11;
+
+    // Função interna para desenhar cada linha
+    function drawLine(data, color){
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      data.forEach((val, i) => {
+        let x = 35 + (i * stepX);
+        let numVal = parseFloat(val) || 0;
+        let y = canvas.height - 30 - ((numVal - 5) / 5) * (canvas.height - 45);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+
+      // Desenhar bolinhas e texto da nota
+      data.forEach((val, i) => {
+        let x = 35 + (i * stepX);
+        let numVal = parseFloat(val) || 0;
+        let y = canvas.height - 30 - ((numVal - 5) / 5) * (canvas.height - 45);
+
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = "#20291F";
+        ctx.font = "9px IBM Plex Sans";
+        ctx.fillText(numVal.toString(), x-6, color === "#4B6B4F" ? y-7 : y+12);
+      });
+    }
+
+    // Desenhar Linha 1: Auditoria Presencial (Verde)
+    drawLine(dataPresencial, "#4B6B4F");
+
+    // Desenhar Linha 2: Auditoria Adm (Azul)
+    drawLine(dataAdm, "#49606B");
+
+    // Labels dos Meses (Eixo X)
+    MESES.forEach((m, i) => {
+      let x = 35 + (i * stepX);
+      ctx.fillStyle = "#5C6259";
+      ctx.font = "10px IBM Plex Sans";
+      ctx.fillText(m, x-8, canvas.height-8);
+    });
+  }, 50);
+}
+
+function slipHTML(s, showLoja){
+  let canManage = usuarioLogado.tag === "Diretoria" || usuarioLogado.tag === "Central" || usuarioLogado.tag === "Supervisão";
+  let actions = '';
+  
+  if(canManage){
+    if(s.status === 'pendente') actions += '<button data-action="mudar-status" data-id="'+s.id+'" data-status="em_andamento">Colocar em andamento</button>';
+    if(s.status === 'em_andamento') actions += '<button data-action="mudar-status" data-id="'+s.id+'" data-status="aguardando">Aguardar</button>';
+    if(s.status === 'aguardando') actions += '<button data-action="mudar-status" data-id="'+s.id+'" data-status="em_andamento">Voltar p/ andamento</button>';
+    if(s.status !== 'concluido') actions += '<button data-action="mudar-status" data-id="'+s.id+'" data-status="concluido">Dar baixa</button>';
+    if(usuarioLogado.tag === "Diretoria") actions += '<button class="danger" data-action="excluir" data-id="'+s.id+'">Excluir</button>';
+  }
+
+  let respRow = '';
+  if(canManage && s.status !== 'pendente'){
+    respRow = '<div class="resp-row">'
+      + '<input placeholder="Responder ou adicionar nota..." data-resp-input="'+s.id+'" value=""/>'
+      + '<button data-action="responder" data-id="'+s.id+'">Responder</button>'
+      + '</div>';
+  }
+
+  return ''
+    + '<div class="slip '+s.prioridade+'">'
+    + '  <div class="slip-top">'
+    + '    <div>'
+    + '      <div class="slip-id">'+s.id+' · '+s.criadoEm+(showLoja ? ' · '+esc(s.loja) : '')+'</div>'
+    + '      <div class="slip-title">'+esc(s.titulo)+'</div>'
+    + '    </div>'
+    + '    <span class="status-pill status-'+s.status+'">'+STATUS_LABEL[s.status]+'</span>'
+    + '  </div>'
+    + '  <div class="slip-meta"><span class="tag">'+esc(s.setor)+'</span></div>'
+    + (s.descricao ? '<div class="slip-desc">'+esc(s.descricao)+'</div>' : '')
+    + (s.imagem ? '<img src="'+s.imagem+'" class="slip-img" alt="Anexo">' : '')
+    + (s.resposta ? '<div class="resposta">Retorno Central: '+esc(s.resposta)+'</div>' : '')
+    + (actions ? '<div class="slip-actions">'+actions+'</div>' : '')
+    + respRow
+    + '</div>';
+}
+
+function renderSearchPaginationBar(totalItems, perPage = ITEMS_PER_PAGE){
+  const totalPages = Math.ceil(totalItems / perPage) || 1;
+  if(currentPage > totalPages) currentPage = totalPages;
+
+  return ''
+    + '<div class="search-pagination-bar">'
+    + '  <input type="text" id="global-search-input" placeholder="Pesquisar..." value="'+esc(searchTerm)+'"/>'
+    + '  <div class="pagination-controls">'
+    + '    <span>Página <strong>'+currentPage+'</strong> de <strong>'+totalPages+'</strong> ('+totalItems+' registros)</span>'
+    + '    <button data-action="prev-page" '+(currentPage<=1?'disabled':'')+'>Anterior</button>'
+    + '    <button data-action="next-page" '+(currentPage>=totalPages?'disabled':'')+'>Próxima</button>'
+    + '  </div>'
+    + '</div>';
+}
+
+function renderLogin(){
+  return ''
+    + '<div class="login-wrapper">'
+    + '  <div class="login-card">'
+    + '    <h2>Central+</h2>'
+    + '    <p>Central de Solicitações e Operações</p>'
+    + (loginErro ? '<div class="error-msg">'+loginErro+'</div>' : '')
+    + '    <div class="field"><label>Usuário</label><input id="login-user" placeholder="Ex: lider, central, diretoria"/></div>'
+    + '    <div class="field"><label>Senha</label><input id="login-pass" type="password" placeholder="Senha"/></div>'
+    + '    <button class="submit-btn" data-action="login">Entrar</button>'
+    + '  </div>'
+    + '</div>';
+}
+
+// --- VISÃO DO LÍDER ---
+function renderVisaoLider(){
+  const permitidas = getLojasPermitidas(usuarioLogado);
+  if(!permitidas.length){
+    return '<div class="empty">Nenhuma loja atribuída ao seu perfil. Solicite acesso à Diretoria.</div>';
+  }
+
+  let selectLojaHTML = permitidas.map(l => '<option value="'+esc(l)+'" '+(l===lojaAtual?'selected':'')+'>'+esc(l)+'</option>').join('');
+
+  const solicitacoesLoja = solicitacoes.filter(s => s.loja === lojaAtual);
+  const abertas = solicitacoesLoja.filter(s => s.status !== 'concluido');
+  const historico = solicitacoesLoja.filter(s => s.status === 'concluido');
+  
+  const auditData = auditoriasStore[lojaAtual] || {notasPresenciais: Array(12).fill("-"), notasAdm: Array(12).fill("-")};
+  const ultimaNotaPresencial = auditData.notasPresenciais ? auditData.notasPresenciais[auditData.notasPresenciais.length - 1] : "-";
+  const ultimaNotaAdm = auditData.notasAdm ? auditData.notasAdm[auditData.notasAdm.length - 1] : "-";
+
+  let bodyAba = '';
+
+  if(abaAtiva === 'dashboard'){
+    drawChartCanvas();
+    bodyAba = ''
+      + '<div class="grid">'
+      + '  <div>'
+      + '    <div class="card">'
+      + '      <h2>Desempenho Atual da Unidade</h2>'
+      + '      <div style="display:flex;gap:20px;">'
+      + '        <div><small style="color:var(--ink-soft);">Auditoria Presencial</small><div class="audit-score" style="color:var(--moss);">'+ultimaNotaPresencial+'</div></div>'
+      + '        <div><small style="color:var(--ink-soft);">Auditoria Adm</small><div class="audit-score" style="color:var(--steel);">'+ultimaNotaAdm+'</div></div>'
+      + '      </div>'
+      + '    </div>'
+      + '    <div class="card">'
+      + '      <h2>Evolução Anual de Auditorias</h2>'
+      + '      <canvas id="chartCanvas" width="320" height="220"></canvas>'
+      + '      <div class="chart-legend">'
+      + '        <span><div class="legend-box" style="background:#4B6B4F;"></div> Auditoria Presencial</span>'
+      + '        <span><div class="legend-box" style="background:#49606B;"></div> Auditoria Administrativa</span>'
+      + '      </div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div>'
+      + '    <div class="card">'
+      + '      <h2>Resumo Operacional</h2>'
+      + '      <p style="font-size:0.9rem;">Você possui <strong>'+abertas.length+'</strong> solicitações em aberto nesta unidade.</p>'
+      + '    </div>'
+      + '    <div class="card">'
+      + '      <h2>Documentos de Auditoria</h2>'
+      + '      <div class="history-box"><strong>Relatório Presencial:</strong> '+esc(auditData.arquivoPresencial || 'Nenhum enviado')+'</div>'
+      + '      <div class="history-box"><strong>Relatório Adm:</strong> '+esc(auditData.arquivoAdm || 'Nenhum enviado')+'</div>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  } else if(abaAtiva === 'nova_solicitacao'){
+    let setorOpts = SETORES_CENTRAL.map(s => '<option value="'+s+'">'+s+'</option>').join('');
+    let priBtns = ['baixa','normal','urgente'].map(p => 
+      '<button data-action="set-prioridade" data-p="'+p+'" class="'+(novaSolicitacao.prioridade===p?'active':'')+'">'+p+'</button>'
+    ).join('');
+
+    bodyAba = ''
+      + '<div class="card" style="max-width:600px;margin:0 auto;">'
+      + '  <h2>Nova Solicitação para '+esc(lojaAtual)+'</h2>'
+      + '  <div class="field"><label>Setor de Destino</label><select id="categoria-select">'+setorOpts+'</select></div>'
+      + '  <div class="field"><label>Título da Demanda</label><input id="titulo-input" placeholder="Ex: Manutenção no forno" value="'+esc(novaSolicitacao.titulo)+'"/></div>'
+      + '  <div class="field"><label>Detalhes</label><textarea id="descricao-input" placeholder="Descreva a demanda">'+esc(novaSolicitacao.descricao)+'</textarea></div>'
+      + '  <div class="field"><label>Anexar Foto (opcional)</label><input type="file" id="imagem-input" accept="image/*"/></div>'
+      + '  <div class="field"><label>Prioridade</label><div class="priority-row">'+priBtns+'</div></div>'
+      + '  <button class="submit-btn" data-action="criar-solicitacao">Enviar para a Central</button>'
+      + '</div>';
+  } else if(abaAtiva === 'solicitacoes' || abaAtiva === 'historico'){
+    let sourceList = abaAtiva === 'solicitacoes' ? abertas : historico;
+    let filtered = sourceList.filter(s => {
+      const q = searchTerm.toLowerCase();
+      return s.id.toLowerCase().includes(q) || s.titulo.toLowerCase().includes(q) || s.setor.toLowerCase().includes(q) || s.descricao.toLowerCase().includes(q);
+    });
+
+    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginated = filtered.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+    bodyAba = renderSearchPaginationBar(filtered.length)
+      + (paginated.length ? paginated.map(s => slipHTML(s, false)).join('') : '<div class="empty">Nenhuma solicitação encontrada.</div>');
+  } else if(abaAtiva === 'perfil'){
+    bodyAba = ''
+      + '<div class="card" style="max-width:500px;margin:0 auto;">'
+      + '  <h2>Editar Meu Perfil</h2>'
+      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
+      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
+      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
+      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
+      + '</div>';
+  }
+
+  return ''
+    + '<div class="store-row"><label>Unidade em atendimento:</label><select id="loja-select">'+selectLojaHTML+'</select></div>'
+    + '<div class="nav-tabs">'
+    + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Dashboard</button>'
+    + '  <button class="'+(abaAtiva==='nova_solicitacao'?'active':'')+'" data-action="set-tab" data-tab="nova_solicitacao">Nova Solicitação</button>'
+    + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Solicitações em Aberto ('+abertas.length+')</button>'
+    + '  <button class="'+(abaAtiva==='historico'?'active':'')+'" data-action="set-tab" data-tab="historico">Histórico Concluído ('+historico.length+')</button>'
+    + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+    + '</div>'
+    + bodyAba;
+}
+
+// --- VISÃO DA CENTRAL ---
+function renderVisaoCentral(){
+  const setoresPermitidos = getSetoresPermitidos(usuarioLogado);
+  if(!setoresPermitidos.length){
+    return '<div class="empty">Você não possui setores vinculados. Contate a Diretoria.</div>';
+  }
+
+  const pesoPrioridade = { urgente: 1, normal: 2, baixa: 3 };
+
+  let filtrados = solicitacoes.filter(s => {
+    const matchSetorPermitido = setoresPermitidos.includes(s.setor);
+    const matchSetorFiltro = filtroSetor === 'todos' || s.setor === filtroSetor;
+    const matchLojaFiltro = filtroLoja === 'todas' || s.loja === filtroLoja;
+    return matchSetorPermitido && matchSetorFiltro && matchLojaFiltro;
+  });
+
+  filtrados.sort((a, b) => {
+    if(pesoPrioridade[a.prioridade] !== pesoPrioridade[b.prioridade]){
+      return pesoPrioridade[a.prioridade] - pesoPrioridade[b.prioridade];
+    }
+    return (a.timestamp || 0) - (b.timestamp || 0);
+  });
+
+  let setorOpts = '<option value="todos">Todos os meus setores</option>';
+  setoresPermitidos.forEach(s => { setorOpts += '<option value="'+s+'" '+(filtroSetor===s?'selected':'')+'>'+s+'</option>'; });
+
+  let lojaOpts = '<option value="todas">Todas as lojas</option>';
+  lojas.forEach(l => { lojaOpts += '<option value="'+esc(l)+'" '+(filtroLoja===l?'selected':'')+'>'+esc(l)+'</option>'; });
+
+  const cols = ['pendente','em_andamento','aguardando','concluido'];
+  let colsHTML = cols.map(c => {
+    const list = filtrados.filter(s=>s.status===c);
+    const body = list.length ? list.map(s=>slipHTML(s,true)).join('') : '<div class="empty">Vazio</div>';
+    return '<div><div class="col-head">'+STATUS_LABEL[c]+' <small>'+list.length+'</small></div>'+body+'</div>';
+  }).join('');
+
+  return ''
+    + '<div class="filter-row">'
+    + '  <label style="font-size:0.82rem;color:var(--ink-soft);">Setor:</label><select id="filtro-setor-select">'+setorOpts+'</select>'
+    + '  <label style="font-size:0.82rem;color:var(--ink-soft);">Loja:</label><select id="filtro-loja-select">'+lojaOpts+'</select>'
+    + '</div>'
+    + '<div class="kanban">'+colsHTML+'</div>';
+}
+
+// PAINEL DE NOTAS MENSAIS (SUPERVISÃO E DIRETORIA)
+function renderPainelAuditorias(tipo){
+  const titulo = tipo === 'presencial' ? 'Auditorias Presenciais Mensais (Supervisão Operacional)' : 'Auditorias Administrativas Mensais (Diretoria)';
+  
+  let headerMeses = MESES.map(m => '<th style="text-align:center;">'+m.toUpperCase()+'</th>').join('');
+
+  let rows = lojas.map(loja => {
+    const data = auditoriasStore[loja] || {};
+    const notasList = (tipo === 'presencial' ? data.notasPresenciais : data.notasAdm) || Array(12).fill(0);
+    const arqAtual = tipo === 'presencial' ? data.arquivoPresencial : data.arquivoAdm;
+
+    let inputsMeses = MESES.map((m, idx) => ''
+      + '<td style="padding:4px;"><input style="width:45px;text-align:center;padding:4px 2px;font-size:0.78rem;" data-audit-mes="'+idx+'" data-audit-tipo="'+tipo+'" data-loja="'+esc(loja)+'" value="'+esc(notasList[idx] !== undefined ? notasList[idx] : '')+'"/></td>'
+    ).join('');
+
+    return ''
+      + '<tr>'
+      + '  <td><strong>'+esc(loja)+'</strong></td>'
+      +    inputsMeses
+      + '  <td><input type="file" style="font-size:0.75rem;" data-audit-file="'+tipo+'" data-loja="'+esc(loja)+'"/> <br><small>'+esc(arqAtual || 'Nenhum enviado')+'</small></td>'
+      + '</tr>';
+  }).join('');
+
+  return ''
+    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">'+titulo+'</h2>'
+    + '<div class="table-responsive">'
+    + '  <table class="table-list"><thead><tr><th>LOJA</th>'+headerMeses+'<th>DOCUMENTO ANEXO</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '</div>';
+}
+
+function renderLogsSistema(){
+  const q = searchTerm.toLowerCase();
+  let filteredLogs = logs.filter(l => 
+    l.usuario.toLowerCase().includes(q) || l.acao.toLowerCase().includes(q) || (l.ip && l.ip.toLowerCase().includes(q))
+  );
+
+  const LOGS_PER_PAGE = 10;
+  const startIdx = (currentPage - 1) * LOGS_PER_PAGE;
+  const paginatedLogs = filteredLogs.slice(startIdx, startIdx + LOGS_PER_PAGE);
+
+  let rows = paginatedLogs.length ? paginatedLogs.map(l => ''
+    + '<tr>'
+    + '  <td style="font-family:\'IBM Plex Mono\';font-size:0.75rem;">'+esc(l.data)+'</td>'
+    + '  <td><strong>'+esc(l.usuario)+'</strong></td>'
+    + '  <td><span class="tag">'+esc(l.ip || '127.0.0.1')+'</span></td>'
+    + '  <td>'+esc(l.acao)+'</td>'
+    + '</tr>'
+  ).join('') : '<tr><td colspan="4" class="empty">Nenhum log encontrado.</td></tr>';
+
+  return ''
+    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">Registro de Ações do Sistema (Logs Auditados)</h2>'
+    + renderSearchPaginationBar(filteredLogs.length, LOGS_PER_PAGE)
+    + '<table class="table-list"><thead><tr><th>DATA / HORA</th><th>USUÁRIO</th><th>ENDEREÇO IP</th><th>AÇÃO REGISTRADA</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+function renderVisaoDiretoria(){
+  if(abaAtiva === 'dashboard'){
+    const total = solicitacoes.length;
+    const pendentes = solicitacoes.filter(s => s.status === 'pendente').length;
+    const emAndamento = solicitacoes.filter(s => s.status === 'em_andamento').length;
+    const aguardando = solicitacoes.filter(s => s.status === 'aguardando').length;
+    const concluidos = solicitacoes.filter(s => s.status === 'concluido').length;
+
+    let storeCardsHTML = lojas.map(loja => {
+      const storeSolicitacoes = solicitacoes.filter(s => s.loja === loja);
+      const totalLoja = storeSolicitacoes.length;
+      const concLoja = storeSolicitacoes.filter(s => s.status === 'concluido').length;
+      const pct = totalLoja ? Math.round((concLoja / totalLoja) * 100) : 0;
+
+      return ''
+        + '<div class="store-card">'
+        + '  <div class="store-card-header">'
+        + '    <div class="store-card-title">'+esc(loja)+'</div>'
+        + '    <span class="tag">'+pct+'% resolvido</span>'
+        + '  </div>'
+        + '  <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>'
+        + '</div>';
+    }).join('');
+
+    return ''
+      + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.3rem;margin:0 0 16px;">Balanço Executivo de Rede</h2>'
+      + '<div class="kpi-grid">'
+      + '  <div class="kpi-card"><span class="kpi-title">TOTAL</span><span class="kpi-value">'+total+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">PENDENTES</span><span class="kpi-value" style="color:var(--mustard);">'+pendentes+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">EM ANDAMENTO</span><span class="kpi-value" style="color:var(--steel);">'+emAndamento+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">AGUARDANDO</span><span class="kpi-value" style="color:var(--rust);">'+aguardando+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">CONCLUÍDAS</span><span class="kpi-value" style="color:var(--moss);">'+concluidos+'</span></div>'
+      + '</div>'
+      + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin:24px 0 14px;">Desempenho por Unidade</h2>'
+      + '<div class="store-summary-grid">'+storeCardsHTML+'</div>';
+  } else if(abaAtiva === 'audit_adm'){
+    return renderPainelAuditorias('adm');
+  } else if(abaAtiva === 'logs'){
+    return renderLogsSistema();
+  } else if(abaAtiva === 'perfil'){
+    return ''
+      + '<div class="card" style="max-width:500px;margin:0 auto;">'
+      + '  <h2>Editar Meu Perfil</h2>'
+      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
+      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
+      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
+      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
+      + '</div>';
+  } else if(abaAtiva === 'lojas'){
+    let filteredLojas = lojas.filter(l => l.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredLojas.map((l, idx) => ''
+      + '<tr>'
+      + '  <td>'+esc(l)+'</td>'
+      + '  <td>'+solicitacoes.filter(s=>s.loja===l).length+' solicitações</td>'
+      + '  <td class="table-actions">'
+      + '    <button class="btn-sm danger" data-action="delete-loja" data-idx="'+idx+'">Excluir</button>'
+      + '  </td>'
+      + '</tr>'
+    ).join('');
+
+    return ''
+      + '<div class="grid">'
+      + '  <div class="card">'
+      + '    <h2>Cadastrar Nova Loja</h2>'
+      + '    <div class="field"><label>Nome da Unidade</label><input id="nova-loja-input" value="'+esc(novaLojaNome)+'"/></div>'
+      + '    <button class="submit-btn" data-action="save-loja">Salvar Loja</button>'
+      + '  </div>'
+      + '  <div>'
+      +    renderSearchPaginationBar(filteredLojas.length, 8)
+      + '  <table class="table-list"><thead><tr><th>LOJA</th><th>HISTÓRICO</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
+      + '</div>';
+  } else if(abaAtiva === 'usuarios'){
+    let filteredUsers = usuarios.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.usuario.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredUsers.map((u, idx) => ''
+      + '<tr>'
+      + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.usuario)+'</small></td>'
+      + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
+      + '  <td class="table-actions">'
+      + '    <button class="btn-sm" data-action="edit-user" data-idx="'+idx+'">Editar Permissões</button>'
+      + '    <button class="btn-sm danger" data-action="delete-user" data-idx="'+idx+'">Excluir</button>'
+      + '  </td>'
+      + '</tr>'
+    ).join('');
+
+    let lojasCheck = lojas.map(l => '<label class="checkbox-item"><input type="checkbox" data-user-loja="'+esc(l)+'" '+(novoUsuarioObj.lojasAcesso.includes(l)?'checked':'')+'/> '+esc(l)+'</label>').join('');
+    let setoresCheck = SETORES_CENTRAL.map(s => '<label class="checkbox-item"><input type="checkbox" data-user-setor="'+esc(s)+'" '+(novoUsuarioObj.setoresAcesso.includes(s)?'checked':'')+'/> '+esc(s)+'</label>').join('');
+
+    return ''
+      + '<div class="grid">'
+      + '  <div class="card">'
+      + '    <h2>Gerenciar Acessos</h2>'
+      + '    <div class="field"><label>Nome Completo</label><input id="user-nome-input" value="'+esc(novoUsuarioObj.nome)+'"/></div>'
+      + '    <div class="field"><label>Usuário (Login)</label><input id="user-login-input" value="'+esc(novoUsuarioObj.usuario)+'"/></div>'
+      + '    <div class="field"><label>Senha</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>'
+      + '    <div class="field"><label>Tag (Função)</label>'
+      + '      <select id="user-tag-select">'
+      + '        <option value="Líder" '+(novoUsuarioObj.tag==='Líder'?'selected':'')+'>Líder</option>'
+      + '        <option value="Central" '+(novoUsuarioObj.tag==='Central'?'selected':'')+'>Central</option>'
+      + '        <option value="Supervisão" '+(novoUsuarioObj.tag==='Supervisão'?'selected':'')+'>Supervisão</option>'
+      + '        <option value="Diretoria" '+(novoUsuarioObj.tag==='Diretoria'?'selected':'')+'>Diretoria</option>'
+      + '      </select>'
+      + '    </div>'
+      + (novoUsuarioObj.tag === 'Líder' ? '<div class="field"><label>Liberar Acesso às Lojas:</label><div class="checkbox-group">'+lojasCheck+'</div></div>' : '')
+      + (novoUsuarioObj.tag === 'Central' ? '<div class="field"><label>Liberar Acesso aos Setores:</label><div class="checkbox-group">'+setoresCheck+'</div></div>' : '')
+      + (novoUsuarioObj.tag === 'Supervisão' ? '<div class="field"><label>Escopo de Supervisão:</label><select id="user-supervision-select"><option value="operacao" '+(novoUsuarioObj.tipoSupervisao==='operacao'?'selected':'')+'>Operação (Todas as Lojas)</option><option value="administrativa" '+(novoUsuarioObj.tipoSupervisao==='administrativa'?'selected':'')+'>Administrativa (Todos os Setores)</option></select></div>' : '')
+      + '    <button class="submit-btn" data-action="save-user">Salvar Usuário & Permissões</button>'
+      + '  </div>'
+      + '  <div>'
+      +    renderSearchPaginationBar(filteredUsers.length, 8)
+      + '  <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
+      + '</div>';
+  }
+}
+
+function renderMainContent(){
+  if(usuarioLogado.tag === "Diretoria"){
+    return ''
+      + '<div class="nav-tabs">'
+      + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Balanço Geral</button>'
+      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditoria Adm (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditoria Presencial (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Painel Central</button>'
+      + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Visão Líderes</button>'
+      + '  <button class="'+(abaAtiva==='lojas'?'active':'')+'" data-action="set-tab" data-tab="lojas">Lojas</button>'
+      + '  <button class="'+(abaAtiva==='usuarios'?'active':'')+'" data-action="set-tab" data-tab="usuarios">Usuários</button>'
+      + '  <button class="'+(abaAtiva==='logs'?'active':'')+'" data-action="set-tab" data-tab="logs">Logs</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+      + '</div>'
+      + (abaAtiva==='solicitacoes' ? renderVisaoLider() : (abaAtiva==='central' ? renderVisaoCentral() : (abaAtiva==='audit_presencial' ? renderPainelAuditorias('presencial') : renderVisaoDiretoria())));
+  }
+
+  if(usuarioLogado.tag === "Supervisão" && usuarioLogado.tipoSupervisao === "operacao"){
+    return ''
+      + '<div class="nav-tabs">'
+      + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Visão Operacional</button>'
+      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditorias Presenciais (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+      + '</div>'
+      + (abaAtiva==='audit_presencial' ? renderPainelAuditorias('presencial') : renderVisaoLider());
+  }
+
+  if(usuarioLogado.tag === "Supervisão" && usuarioLogado.tipoSupervisao === "administrativa"){
+    return ''
+      + '<div class="nav-tabs">'
+      + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Visão Administrativa</button>'
+      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditorias Adm (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+      + '</div>'
+      + (abaAtiva==='audit_adm' ? renderPainelAuditorias('adm') : renderVisaoCentral());
+  }
+
+  if(usuarioLogado.tag === "Líder"){
+    return renderVisaoLider();
+  }
+
+  if(usuarioLogado.tag === "Central"){
+    return ''
+      + '<div class="nav-tabs">'
+      + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Central de Atendimento</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
+      + '</div>'
+      + (abaAtiva==='perfil' ? ''
+      + '<div class="card" style="max-width:500px;margin:0 auto;">'
+      + '  <h2>Editar Meu Perfil</h2>'
+      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
+      + '  <div class="field"><label>Usuário (Login)</label><input id="perfil-login-input" value="'+esc(usuarioLogado.usuario)+'"/></div>'
+      + '  <div class="field"><label>Nova Senha</label><input id="perfil-senha-input" type="password" value="'+esc(usuarioLogado.senha)+'"/></div>'
+      + '  <button class="submit-btn" data-action="salvar-meu-perfil">Salvar Alterações</button>'
+      + '</div>' : renderVisaoCentral());
+  }
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!usuarioLogado){
+    app.innerHTML = renderLogin();
+    return;
+  }
+
+  app.innerHTML = ''
+    + '<div class="topbar">'
+    + '  <div class="brand"><h1>Central+</h1><span>CENTRAL DE SOLICITAÇÕES E OPERAÇÕES</span></div>'
+    + '  <div class="user-info">'
+    + '    <span>' + esc(usuarioLogado.nome) + ' <small class="tag">' + esc(usuarioLogado.tag) + '</small></span>'
+    + '    <button class="logout-btn" data-action="logout">Sair</button>'
+    + '  </div>'
+    + '</div>'
+    + renderMainContent();
+}
+
+// --- EVENTOS E LISTENERS ---
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.getAttribute('data-action');
+  
+  if(action === 'login'){
+    autenticar(document.getElementById('login-user').value, document.getElementById('login-pass').value);
+  } else if(action === 'logout'){
+    logout();
+  } else if(action === 'set-tab'){
+    abaAtiva = btn.getAttribute('data-tab');
+    searchTerm = "";
+    currentPage = 1;
+    render();
+  } else if(action === 'prev-page'){
+    if(currentPage > 1){ currentPage--; render(); }
+  } else if(action === 'next-page'){
+    currentPage++; render();
+  } else if(action === 'set-prioridade'){
+    novaSolicitacao.prioridade = btn.getAttribute('data-p');
+    render();
+  } else if(action === 'criar-solicitacao'){
+    criarSolicitacao();
+  } else if(action === 'save-loja'){
+    if(novaLojaNome.trim()){
+      lojas.push(novaLojaNome.trim());
+      initAuditorias();
+      novaLojaNome = "";
+      saveData();
+      render();
+    }
+  } else if(action === 'delete-loja'){
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    if(confirm('Excluir loja?')){
+      lojas.splice(idx,1);
+      saveData();
+      render();
+    }
+  } else if(action === 'save-user'){
+    const payload = {
+      usuario: novoUsuarioObj.usuario.trim(),
+      senha: novoUsuarioObj.senha.trim(),
+      tag: novoUsuarioObj.tag,
+      nome: novoUsuarioObj.nome.trim(),
+      lojasAcesso: novoUsuarioObj.tag === "Líder" ? [...novoUsuarioObj.lojasAcesso] : [],
+      setoresAcesso: novoUsuarioObj.tag === "Central" ? [...novoUsuarioObj.setoresAcesso] : [],
+      tipoSupervisao: novoUsuarioObj.tag === "Supervisão" ? novoUsuarioObj.tipoSupervisao : ""
+    };
+    if(usuarioEdicaoIndex !== null) usuarios[usuarioEdicaoIndex] = payload;
+    else usuarios.push(payload);
+    
+    usuarioEdicaoIndex = null;
+    novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
+    saveData();
+    render();
+  } else if(action === 'edit-user'){
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    usuarioEdicaoIndex = idx;
+    const u = usuarios[idx];
+    novoUsuarioObj = {usuario:u.usuario, senha:u.senha, tag:u.tag, nome:u.nome, lojasAcesso:[...u.lojasAcesso], setoresAcesso:[...u.setoresAcesso], tipoSupervisao:u.tipoSupervisao||"operacao"};
+    render();
+  } else if(action === 'delete-user'){
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    if(confirm('Excluir usuário?')){
+      usuarios.splice(idx,1);
+      saveData();
+      render();
+    }
+  } else if(action === 'salvar-meu-perfil'){
+    salvarMeuPerfil(
+      document.getElementById('perfil-nome-input').value,
+      document.getElementById('perfil-login-input').value,
+      document.getElementById('perfil-senha-input').value
+    );
+  } else if(action === 'mudar-status'){
+    mudarStatus(btn.getAttribute('data-id'), btn.getAttribute('data-status'));
+  } else if(action === 'responder'){
+    const id = btn.getAttribute('data-id');
+    const input = document.querySelector('[data-resp-input="'+id+'"]');
+    if(input){
+      responder(id, input.value);
+      input.value = "";
+    }
+  } else if(action === 'excluir'){
+    excluirSolicitacao(btn.getAttribute('data-id'));
+  }
+});
+
+document.addEventListener('change', function(e){
+  if(e.target.id === 'loja-select'){
+    lojaAtual = e.target.value;
+    render();
+  } else if(e.target.id === 'categoria-select'){
+    novaSolicitacao.setor = e.target.value;
+  } else if(e.target.id === 'filtro-loja-select'){
+    filtroLoja = e.target.value;
+    render();
+  } else if(e.target.id === 'filtro-setor-select'){
+    filtroSetor = e.target.value;
+    render();
+  } else if(e.target.id === 'user-tag-select'){
+    novoUsuarioObj.tag = e.target.value;
+    render();
+  } else if(e.target.id === 'user-supervision-select'){
+    novoUsuarioObj.tipoSupervisao = e.target.value;
+  } else if(e.target.hasAttribute('data-audit-mes')){
+    const mesIdx = parseInt(e.target.getAttribute('data-audit-mes'));
+    const tipo = e.target.getAttribute('data-audit-tipo');
+    const lj = e.target.getAttribute('data-loja');
+    
+    if(!auditoriasStore[lj]) auditoriasStore[lj] = {};
+    if(tipo === 'presencial'){
+      if(!auditoriasStore[lj].notasPresenciais) auditoriasStore[lj].notasPresenciais = Array(12).fill(0);
+      auditoriasStore[lj].notasPresenciais[mesIdx] = parseFloat(e.target.value) || 0;
+    } else {
+      if(!auditoriasStore[lj].notasAdm) auditoriasStore[lj].notasAdm = Array(12).fill(0);
+      auditoriasStore[lj].notasAdm[mesIdx] = parseFloat(e.target.value) || 0;
+    }
+    registrarLog("Atualizou nota do mês "+MESES[mesIdx]+" ("+tipo+") para a loja "+lj);
+    saveData();
+  } else if(e.target.hasAttribute('data-audit-file')){
+    const tipo = e.target.getAttribute('data-audit-file');
+    const lj = e.target.getAttribute('data-loja');
+    const file = e.target.files[0];
+    if(file){
+      if(!auditoriasStore[lj]) auditoriasStore[lj] = {};
+      if(tipo === 'presencial') auditoriasStore[lj].arquivoPresencial = file.name;
+      else auditoriasStore[lj].arquivoAdm = file.name;
+      registrarLog("Enviou arquivo de auditoria " + tipo + " para a loja " + lj);
+      saveData();
+      render();
+    }
+  } else if(e.target.hasAttribute('data-user-loja')){
+    const l = e.target.getAttribute('data-user-loja');
+    if(e.target.checked){
+      if(!novoUsuarioObj.lojasAcesso.includes(l)) novoUsuarioObj.lojasAcesso.push(l);
+    } else {
+      novoUsuarioObj.lojasAcesso = novoUsuarioObj.lojasAcesso.filter(item => item !== l);
+    }
+  } else if(e.target.hasAttribute('data-user-setor')){
+    const s = e.target.getAttribute('data-user-setor');
+    if(e.target.checked){
+      if(!novoUsuarioObj.setoresAcesso.includes(s)) novoUsuarioObj.setoresAcesso.push(s);
+    } else {
+      novoUsuarioObj.setoresAcesso = novoUsuarioObj.setoresAcesso.filter(item => item !== s);
+    }
+  } else if(e.target.id === 'imagem-input'){
+    const file = e.target.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = function(evt){ novaSolicitacao.imagem = evt.target.result; };
+      reader.readAsDataURL(file);
+    }
+  }
+});
+
+document.addEventListener('input', function(e){
+  if(e.target.id === 'global-search-input'){
+    searchTerm = e.target.value;
+    currentPage = 1;
+    render();
+  } else if(e.target.id === 'titulo-input') novaSolicitacao.titulo = e.target.value;
+  else if(e.target.id === 'descricao-input') novaSolicitacao.descricao = e.target.value;
+  else if(e.target.id === 'nova-loja-input') novaLojaNome = e.target.value;
+  else if(e.target.id === 'user-nome-input') novoUsuarioObj.nome = e.target.value;
+  else if(e.target.id === 'user-login-input') novoUsuarioObj.usuario = e.target.value;
+  else if(e.target.id === 'user-pass-input') novoUsuarioObj.senha = e.target.value;
+});
+
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && !usuarioLogado){
+    autenticar(document.getElementById('login-user').value, document.getElementById('login-pass').value);
+  }
+});
+
+(async function init(){
+  await fetchUserIP();
+  await loadData();
+  render();
+})();
+</script>
+</body>
+</html>
