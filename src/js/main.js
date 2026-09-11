@@ -37,7 +37,7 @@ const ITEMS_PER_PAGE = 5;
 let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
 let novaLojaNome = "";
 let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
-let usuarioEdicaoIndex = null;
+let usuarioEdicaoId = null;
 
 async function fetchUserIP(){
   try{
@@ -173,6 +173,13 @@ async function autenticar(emailInput, passInput) {
       .eq('id', data.user.id)
       .single();
 
+    if(perfil && perfil.ativo === false){
+      await supabaseClient.auth.signOut();
+      loginErro = "Sua conta está desativada. Fale com a Diretoria.";
+      render();
+      return;
+    }
+
     if(!perfil){
       usuarioLogado = {
         id: data.user.id,
@@ -259,7 +266,8 @@ async function salvarUsuarioAdmin() {
       tag: novoUsuarioObj.tag,
       lojas_acesso: novoUsuarioObj.tag === 'Líder' ? novoUsuarioObj.lojasAcesso : [],
       setores_acesso: novoUsuarioObj.tag === 'Central' ? novoUsuarioObj.setoresAcesso : [],
-      tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : ''
+      tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : '',
+      ativo: true
     };
 
     const { error: dbError } = await supabaseClient
@@ -281,6 +289,83 @@ async function salvarUsuarioAdmin() {
     console.error("Erro inesperado:", err);
     alert("Erro ao processar cadastro: " + err.message);
   }
+}
+
+function iniciarEdicaoUsuario(id){
+  const u = usuariosList.find(u => u.id === id);
+  if(!u) return;
+  usuarioEdicaoId = id;
+  novoUsuarioObj = {
+    usuario: u.email || "",
+    senha: "",
+    tag: u.tag || "Líder",
+    nome: u.nome || "",
+    lojasAcesso: u.lojas_acesso || [],
+    setoresAcesso: u.setores_acesso || [],
+    tipoSupervisao: u.tipo_supervisao || "operacao"
+  };
+  render();
+}
+
+function cancelarEdicaoUsuario(){
+  usuarioEdicaoId = null;
+  novoUsuarioObj = { usuario: "", senha: "", tag: "Líder", nome: "", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao" };
+  render();
+}
+
+async function atualizarUsuarioAdmin(){
+  if(!usuarioEdicaoId) return;
+  if(!novoUsuarioObj.nome.trim()){
+    alert("Preencha o nome do usuário!");
+    return;
+  }
+
+  const payload = {
+    nome: novoUsuarioObj.nome.trim(),
+    tag: novoUsuarioObj.tag,
+    lojas_acesso: novoUsuarioObj.tag === 'Líder' ? novoUsuarioObj.lojasAcesso : [],
+    setores_acesso: novoUsuarioObj.tag === 'Central' ? novoUsuarioObj.setoresAcesso : [],
+    tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : ''
+  };
+
+  const { error } = await supabaseClient
+    .from('usuarios')
+    .update(payload)
+    .eq('id', usuarioEdicaoId);
+
+  if (error) {
+    console.error("Erro ao atualizar usuário:", error);
+    alert("Não foi possível salvar as alterações: " + error.message);
+    return;
+  }
+
+  await registrarLog("Editou o usuário " + (novoUsuarioObj.usuario || usuarioEdicaoId));
+  usuarioEdicaoId = null;
+  novoUsuarioObj = { usuario: "", senha: "", tag: "Líder", nome: "", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao" };
+  await loadData();
+  render();
+}
+
+async function alternarAtivoUsuario(id, ativarPara){
+  if(id === usuarioLogado.id){
+    alert("Você não pode desativar seu próprio usuário.");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('usuarios')
+    .update({ ativo: ativarPara })
+    .eq('id', id);
+
+  if (error) {
+    console.error("Erro ao atualizar status do usuário:", error);
+    alert("Não foi possível " + (ativarPara ? "reativar" : "desativar") + " o usuário: " + error.message);
+    return;
+  }
+
+  await registrarLog((ativarPara ? "Reativou" : "Desativou") + " o usuário " + id);
+  await loadData();
+  render();
 }
 
 async function criarSolicitacao(){
@@ -731,23 +816,39 @@ function renderVisaoDiretoria(){
       + '</div>';
   } else if(abaAtiva === 'usuarios'){
     let filteredUsers = usuariosList.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    let list = filteredUsers.map((u) => ''
-      + '<tr>'
-      + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.email)+'</small></td>'
-      + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
-      + '</tr>'
-    ).join('');
+    let list = filteredUsers.map((u) => {
+      const inativo = u.ativo === false;
+      const souEu = u.id === usuarioLogado.id;
+      let toggleBtn = '';
+      if(!souEu){
+        toggleBtn = inativo
+          ? '<button class="btn-sm" data-action="toggle-ativo-usuario" data-id="'+esc(u.id)+'" data-ativo="true">Reativar</button>'
+          : '<button class="btn-sm danger" data-action="toggle-ativo-usuario" data-id="'+esc(u.id)+'" data-ativo="false">Desativar</button>';
+      }
+      return ''
+        + '<tr>'
+        + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.email)+'</small></td>'
+        + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
+        + '  <td><span class="tag">'+(inativo ? 'Inativo' : 'Ativo')+'</span></td>'
+        + '  <td class="table-actions">'
+        + '    <button class="btn-sm" data-action="editar-usuario" data-id="'+esc(u.id)+'">Editar</button>'
+        +      toggleBtn
+        + '  </td>'
+        + '</tr>';
+    }).join('');
 
     let lojasCheck = lojas.map(l => '<label class="checkbox-item"><input type="checkbox" data-user-loja="'+esc(l)+'" '+(novoUsuarioObj.lojasAcesso.includes(l)?'checked':'')+'/> '+esc(l)+'</label>').join('');
     let setoresCheck = SETORES_CENTRAL.map(s => '<label class="checkbox-item"><input type="checkbox" data-user-setor="'+esc(s)+'" '+(novoUsuarioObj.setoresAcesso.includes(s)?'checked':'')+'/> '+esc(s)+'</label>').join('');
 
+    const emEdicao = !!usuarioEdicaoId;
+
     return ''
       + '<div class="grid">'
       + '  <div class="card">'
-      + '    <h2>Cadastrar Novo Usuário</h2>'
+      + '    <h2>'+(emEdicao ? 'Editar Usuário' : 'Cadastrar Novo Usuário')+'</h2>'
       + '    <div class="field"><label>Nome Completo</label><input id="user-nome-input" value="'+esc(novoUsuarioObj.nome)+'"/></div>'
-      + '    <div class="field"><label>E-mail Corporativo (Login)</label><input id="user-login-input" type="email" value="'+esc(novoUsuarioObj.usuario)+'"/></div>'
-      + '    <div class="field"><label>Senha Inicial</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>'
+      + '    <div class="field"><label>E-mail Corporativo (Login)</label><input id="user-login-input" type="email" value="'+esc(novoUsuarioObj.usuario)+'" '+(emEdicao?'disabled':'')+'/></div>'
+      + (emEdicao ? '' : '    <div class="field"><label>Senha Inicial</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>')
       + '    <div class="field"><label>Tag (Função)</label>'
       + '      <select id="user-tag-select">'
       + '        <option value="Líder" '+(novoUsuarioObj.tag==='Líder'?'selected':'')+'>Líder</option>'
@@ -759,12 +860,13 @@ function renderVisaoDiretoria(){
       + (novoUsuarioObj.tag === 'Líder' ? '<div class="field"><label>Liberar Acesso às Lojas:</label><div class="checkbox-group">'+lojasCheck+'</div></div>' : '')
       + (novoUsuarioObj.tag === 'Central' ? '<div class="field"><label>Liberar Acesso aos Setores:</label><div class="checkbox-group">'+setoresCheck+'</div></div>' : '')
       + (novoUsuarioObj.tag === 'Supervisão' ? '<div class="field"><label>Escopo de Supervisão:</label><select id="user-supervision-select"><option value="operacao" '+(novoUsuarioObj.tipoSupervisao==='operacao'?'selected':'')+'>Operação (Todas as Lojas)</option><option value="administrativa" '+(novoUsuarioObj.tipoSupervisao==='administrativa'?'selected':'')+'>Administrativa (Todos os Setores)</option></select></div>' : '')
-      + '    <button class="submit-btn" data-action="save-user">Cadastrar Usuário</button>'
+      + '    <button class="submit-btn" data-action="'+(emEdicao ? 'salvar-edicao-usuario' : 'save-user')+'">'+(emEdicao ? 'Salvar Alterações' : 'Cadastrar Usuário')+'</button>'
+      + (emEdicao ? '    <button class="submit-btn" style="background:#fff;color:var(--ink);border:1.5px solid var(--line);margin-top:8px;" data-action="cancelar-edicao-usuario">Cancelar</button>' : '')
       + '  </div>'
       + '  <div>'
       + '    <h2>Usuários Cadastrados</h2>'
       +      renderSearchPaginationBar(filteredUsers.length, 8)
-      + '    <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>'
+      + '    <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th><th>STATUS</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table>'
       + '  </div>'
       + '</div>';
   } else if(abaAtiva === 'perfil'){
@@ -858,6 +960,14 @@ document.addEventListener('click', function(e){
     }
   } else if(action === 'save-user'){
     salvarUsuarioAdmin();
+  } else if(action === 'editar-usuario'){
+    iniciarEdicaoUsuario(btn.getAttribute('data-id'));
+  } else if(action === 'salvar-edicao-usuario'){
+    atualizarUsuarioAdmin();
+  } else if(action === 'cancelar-edicao-usuario'){
+    cancelarEdicaoUsuario();
+  } else if(action === 'toggle-ativo-usuario'){
+    alternarAtivoUsuario(btn.getAttribute('data-id'), btn.getAttribute('data-ativo') === 'true');
   } else if(action === 'mudar-status'){
     mudarStatus(btn.getAttribute('data-id'), btn.getAttribute('data-status'));
   } else if(action === 'responder'){
