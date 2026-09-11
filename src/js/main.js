@@ -183,6 +183,35 @@ async function logout() {
   render();
 }
 
+async function salvarUsuarioAdmin() {
+  if (!novoUsuarioObj.usuario.trim() || !novoUsuarioObj.senha.trim() || !novoUsuarioObj.nome.trim()) {
+    alert("Preencha e-mail, senha e nome do usuário!");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('criar_novo_usuario', {
+    novo_email: novoUsuarioObj.usuario.trim(),
+    nova_senha: novoUsuarioObj.senha.trim(),
+    novo_nome: novoUsuarioObj.nome.trim(),
+    nova_tag: novoUsuarioObj.tag,
+    novas_lojas: novoUsuarioObj.tag === 'Líder' ? novoUsuarioObj.lojasAcesso : [],
+    novos_setores: novoUsuarioObj.tag === 'Central' ? novoUsuarioObj.setoresAcesso : [],
+    novo_tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : ''
+  });
+
+  if (error || (data && !data.sucesso)) {
+    alert("Erro ao criar usuário: " + (error ? error.message : (data ? data.erro : "Erro desconhecido")));
+  } else {
+    alert("Usuário " + novoUsuarioObj.nome + " criado com sucesso!");
+    await registrarLog("Cadastrou novo usuário: " + novoUsuarioObj.usuario);
+    
+    novoUsuarioObj = { usuario: "", senha: "", tag: "Líder", nome: "", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao" };
+    usuarioEdicaoIndex = null;
+    await loadData();
+    render();
+  }
+}
+
 async function criarSolicitacao(){
   if(!novaSolicitacao.titulo.trim()) return;
   const s = {
@@ -616,11 +645,34 @@ function renderVisaoDiretoria(){
       + '</tr>'
     ).join('');
 
+    let lojasCheck = lojas.map(l => '<label class="checkbox-item"><input type="checkbox" data-user-loja="'+esc(l)+'" '+(novoUsuarioObj.lojasAcesso.includes(l)?'checked':'')+'/> '+esc(l)+'</label>').join('');
+    let setoresCheck = SETORES_CENTRAL.map(s => '<label class="checkbox-item"><input type="checkbox" data-user-setor="'+esc(s)+'" '+(novoUsuarioObj.setoresAcesso.includes(s)?'checked':'')+'/> '+esc(s)+'</label>').join('');
+
     return ''
-      + '<div>'
-      + '  <h2>Gestão de Usuários e Permissões</h2>'
-      +    renderSearchPaginationBar(filteredUsers.length, 8)
-      + '  <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>'
+      + '<div class="grid">'
+      + '  <div class="card">'
+      + '    <h2>Cadastrar Novo Usuário</h2>'
+      + '    <div class="field"><label>Nome Completo</label><input id="user-nome-input" value="'+esc(novoUsuarioObj.nome)+'"/></div>'
+      + '    <div class="field"><label>E-mail Corporativo (Login)</label><input id="user-login-input" type="email" value="'+esc(novoUsuarioObj.usuario)+'"/></div>'
+      + '    <div class="field"><label>Senha Inicial</label><input id="user-pass-input" type="password" value="'+esc(novoUsuarioObj.senha)+'"/></div>'
+      + '    <div class="field"><label>Tag (Função)</label>'
+      + '      <select id="user-tag-select">'
+      + '        <option value="Líder" '+(novoUsuarioObj.tag==='Líder'?'selected':'')+'>Líder</option>'
+      + '        <option value="Central" '+(novoUsuarioObj.tag==='Central'?'selected':'')+'>Central</option>'
+      + '        <option value="Supervisão" '+(novoUsuarioObj.tag==='Supervisão'?'selected':'')+'>Supervisão</option>'
+      + '        <option value="Diretoria" '+(novoUsuarioObj.tag==='Diretoria'?'selected':'')+'>Diretoria</option>'
+      + '      </select>'
+      + '    </div>'
+      + (novoUsuarioObj.tag === 'Líder' ? '<div class="field"><label>Liberar Acesso às Lojas:</label><div class="checkbox-group">'+lojasCheck+'</div></div>' : '')
+      + (novoUsuarioObj.tag === 'Central' ? '<div class="field"><label>Liberar Acesso aos Setores:</label><div class="checkbox-group">'+setoresCheck+'</div></div>' : '')
+      + (novoUsuarioObj.tag === 'Supervisão' ? '<div class="field"><label>Escopo de Supervisão:</label><select id="user-supervision-select"><option value="operacao" '+(novoUsuarioObj.tipoSupervisao==='operacao'?'selected':'')+'>Operação (Todas as Lojas)</option><option value="administrativa" '+(novoUsuarioObj.tipoSupervisao==='administrativa'?'selected':'')+'>Administrativa (Todos os Setores)</option></select></div>' : '')
+      + '    <button class="submit-btn" data-action="save-user">Cadastrar Usuário</button>'
+      + '  </div>'
+      + '  <div>'
+      + '    <h2>Usuários Cadastrados</h2>'
+      +      renderSearchPaginationBar(filteredUsers.length, 8)
+      + '    <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>'
+      + '  </div>'
       + '</div>';
   } else if(abaAtiva === 'perfil'){
     return ''
@@ -711,6 +763,8 @@ document.addEventListener('click', function(e){
       lojas.splice(idx,1);
       render();
     }
+  } else if(action === 'save-user'){
+    salvarUsuarioAdmin();
   } else if(action === 'mudar-status'){
     mudarStatus(btn.getAttribute('data-id'), btn.getAttribute('data-status'));
   } else if(action === 'responder'){
@@ -737,6 +791,11 @@ document.addEventListener('change', function(e){
   } else if(e.target.id === 'filtro-setor-select'){
     filtroSetor = e.target.value;
     render();
+  } else if(e.target.id === 'user-tag-select'){
+    novoUsuarioObj.tag = e.target.value;
+    render();
+  } else if(e.target.id === 'user-supervision-select'){
+    novoUsuarioObj.tipoSupervisao = e.target.value;
   } else if(e.target.hasAttribute('data-audit-mes')){
     const mesIdx = parseInt(e.target.getAttribute('data-audit-mes'));
     const tipo = e.target.getAttribute('data-audit-tipo');
@@ -751,6 +810,20 @@ document.addEventListener('change', function(e){
       auditoriasStore[lj].notasAdm[mesIdx] = parseFloat(e.target.value) || 0;
     }
     registrarLog("Atualizou nota do mês "+MESES[mesIdx]+" ("+tipo+") para a loja "+lj);
+  } else if(e.target.hasAttribute('data-user-loja')){
+    const l = e.target.getAttribute('data-user-loja');
+    if(e.target.checked){
+      if(!novoUsuarioObj.lojasAcesso.includes(l)) novoUsuarioObj.lojasAcesso.push(l);
+    } else {
+      novoUsuarioObj.lojasAcesso = novoUsuarioObj.lojasAcesso.filter(item => item !== l);
+    }
+  } else if(e.target.hasAttribute('data-user-setor')){
+    const s = e.target.getAttribute('data-user-setor');
+    if(e.target.checked){
+      if(!novoUsuarioObj.setoresAcesso.includes(s)) novoUsuarioObj.setoresAcesso.push(s);
+    } else {
+      novoUsuarioObj.setoresAcesso = novoUsuarioObj.setoresAcesso.filter(item => item !== s);
+    }
   } else if(e.target.id === 'imagem-input'){
     const file = e.target.files[0];
     if(file){
@@ -769,6 +842,9 @@ document.addEventListener('input', function(e){
   } else if(e.target.id === 'titulo-input') novaSolicitacao.titulo = e.target.value;
   else if(e.target.id === 'descricao-input') novaSolicitacao.descricao = e.target.value;
   else if(e.target.id === 'nova-loja-input') novaLojaNome = e.target.value;
+  else if(e.target.id === 'user-nome-input') novoUsuarioObj.nome = e.target.value;
+  else if(e.target.id === 'user-login-input') novoUsuarioObj.usuario = e.target.value;
+  else if(e.target.id === 'user-pass-input') novoUsuarioObj.senha = e.target.value;
 });
 
 document.addEventListener('keydown', function(e){
