@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head> 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<head>
 <meta charset="UTF-8">
 <title>Central+ - Gestão & Auditoria</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<!-- SDK Oficial do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --ink:#20291F;
@@ -111,7 +112,6 @@
   }
   .submit-btn:hover{background:#0f1610;}
 
-  /* Login Card Styles */
   .login-wrapper{
     display:flex;justify-content:center;align-items:center;min-height:70vh;
   }
@@ -129,7 +129,6 @@
     color:var(--rust);font-size:0.8rem;margin-bottom:10px;text-align:center;
   }
 
-  /* Executive Dashboard Styles */
   .kpi-grid{
     display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;margin-bottom:24px;
   }
@@ -255,44 +254,34 @@
 </head>
 <body>
 <div class="app" id="app">
-  <div class="loading">Abrindo o Central+…</div>
+  <div class="loading">Conectando ao banco Central+…</div>
 </div>
 
 <script>
+// --- CONFIGURAÇÃO DO SUPABASE (COLE SUAS CHAVES AQUI) ---
+const SUPABASE_URL = 'SUA_SUPABASE_URL_AQUI';
+const SUPABASE_KEY = 'SUA_SUPABASE_ANON_KEY_AQUI';
+let supabaseClient = null;
+
+if (typeof supabase !== 'undefined' && SUPABASE_URL !== 'SUA_SUPABASE_URL_AQUI') {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
 const LOJAS_PADRAO = [
-  "Potato Guará",
-  "Potato Pinda",
-  "Potato Matriz",
-  "Potato Via Vale",
-  "Potato Center Vale",
-  "Potato Vale Sul",
-  "Potato Jacareí",
-  "Kanpek Shopping",
-  "Kanpek Restaurante"
+  "Potato Guará", "Potato Pinda", "Potato Matriz", 
+  "Potato Via Vale", "Potato Center Vale", "Potato Vale Sul", 
+  "Potato Jacareí", "Kanpek Shopping", "Kanpek Restaurante"
 ];
 
 const SETORES_CENTRAL = [
-  "Recursos Humanos",
-  "Departamento Pessoal",
-  "Administrativo",
-  "Compras",
-  "Manutenção",
-  "Logistica",
-  "Marketing",
-  "TI"
+  "Recursos Humanos", "Departamento Pessoal", "Administrativo", 
+  "Compras", "Manutenção", "Logistica", "Marketing", "TI"
 ];
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-const STATUS_LABEL = {
-  pendente: "Pendente", 
-  em_andamento: "Em andamento", 
-  aguardando: "Aguardando", 
-  concluido: "Concluído"
-};
+const STATUS_LABEL = { pendente: "Pendente", em_andamento: "Em andamento", aguardando: "Aguardando", concluido: "Concluído" };
 
 let lojas = [...LOJAS_PADRAO];
-
 let usuarios = [
   {usuario: "diretoria", senha: "123", tag: "Diretoria", nome: "Diretoria Executiva", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: ""},
   {usuario: "lider", senha: "123", tag: "Líder", nome: "Líder de Loja", lojasAcesso: ["Potato Guará", "Potato Pinda"], setoresAcesso: [], tipoSupervisao: ""},
@@ -320,7 +309,6 @@ const ITEMS_PER_PAGE = 5;
 let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
 let novaLojaNome = "";
 let lojaEdicaoIndex = null;
-
 let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
 let usuarioEdicaoIndex = null;
 
@@ -334,7 +322,6 @@ async function fetchUserIP(){
   }
 }
 
-// Inicialização com 12 meses de notas por loja
 function initAuditorias(){
   LOJAS_PADRAO.forEach(l => {
     if(!auditoriasStore[l]){
@@ -348,40 +335,42 @@ function initAuditorias(){
   });
 }
 
+// --- INTEGRAÇÃO BANCO DE DADOS SUPABASE / LOCALSTORAGE FALLBACK ---
 async function loadData(){
-  try{
+  if (supabaseClient) {
+    try {
+      const { data: solData } = await supabaseClient.from('solicitacoes').select('*');
+      if (solData) solicitacoes = solData;
+
+      const { data: logsData } = await supabaseClient.from('logs').select('*').order('id', { ascending: false });
+      if (logsData) logs = logsData;
+    } catch (e) {
+      console.error("Erro ao carregar do Supabase:", e);
+    }
+  } else {
+    // Fallback local se o Supabase não estiver configurado ainda
     let dataSolicitacoes = localStorage.getItem('centralplus:solicitacoes_v4');
-    let dataLojas = localStorage.getItem('centralplus:lojas_v4');
-    let dataUsuarios = localStorage.getItem('centralplus:usuarios_v4');
-    let dataAuditorias = localStorage.getItem('centralplus:auditorias_v4');
     let dataLogs = localStorage.getItem('centralplus:logs_v4');
-
     if(dataSolicitacoes) solicitacoes = JSON.parse(dataSolicitacoes);
-    if(dataLojas) lojas = JSON.parse(dataLojas);
-    if(dataUsuarios) usuarios = JSON.parse(dataUsuarios);
-    if(dataAuditorias) auditoriasStore = JSON.parse(dataAuditorias);
     if(dataLogs) logs = JSON.parse(dataLogs);
-
-    initAuditorias();
-  }catch(e){
-    console.error(e);
-    initAuditorias();
   }
+  initAuditorias();
 }
 
-async function saveData(){
-  try{
-    localStorage.setItem('centralplus:solicitacoes_v4', JSON.stringify(solicitacoes));
-    localStorage.setItem('centralplus:lojas_v4', JSON.stringify(lojas));
-    localStorage.setItem('centralplus:usuarios_v4', JSON.stringify(usuarios));
-    localStorage.setItem('centralplus:auditorias_v4', JSON.stringify(auditoriasStore));
-    localStorage.setItem('centralplus:logs_v4', JSON.stringify(logs));
-  }catch(e){
-    console.error('Falha ao salvar', e);
+async function saveData(tabela, payload){
+  if (supabaseClient && tabela) {
+    try {
+      await supabaseClient.from(tabela).upsert(payload);
+    } catch(e) {
+      console.error("Erro ao salvar no Supabase:", e);
+    }
   }
+  // Salva no LocalStorage como backup local
+  localStorage.setItem('centralplus:solicitacoes_v4', JSON.stringify(solicitacoes));
+  localStorage.setItem('centralplus:logs_v4', JSON.stringify(logs));
 }
 
-function registrarLog(acao){
+async function registrarLog(acao){
   const item = {
     data: new Date().toLocaleString('pt-BR'),
     usuario: usuarioLogado ? usuarioLogado.nome + ' ('+usuarioLogado.tag+')' : 'Sistema',
@@ -389,7 +378,7 @@ function registrarLog(acao){
     acao: acao
   };
   logs = [item, ...logs];
-  saveData();
+  await saveData('logs', item);
 }
 
 function nextId(){
@@ -463,29 +452,36 @@ async function criarSolicitacao(){
   solicitacoes = [s, ...solicitacoes];
   novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
   registrarLog("Criou a solicitação " + s.id + " para " + s.loja);
-  await saveData();
+  await saveData('solicitacoes', s);
   abaAtiva = "solicitacoes";
   render();
 }
 
 async function mudarStatus(id, novoStatus){
-  solicitacoes = solicitacoes.map(s => s.id===id ? Object.assign({}, s, {status:novoStatus}) : s);
-  registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
-  await saveData();
+  const target = solicitacoes.find(s => s.id === id);
+  if(target){
+    target.status = novoStatus;
+    registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
+    await saveData('solicitacoes', target);
+  }
   render();
 }
 
 async function responder(id, texto){
   if(!texto.trim()) return;
-  solicitacoes = solicitacoes.map(s => s.id===id ? Object.assign({}, s, {resposta:texto.trim()}) : s);
-  registrarLog("Respondeu a solicitação " + id);
-  await saveData();
+  const target = solicitacoes.find(s => s.id === id);
+  if(target){
+    target.resposta = texto.trim();
+    registrarLog("Respondeu a solicitação " + id);
+    await saveData('solicitacoes', target);
+  }
   render();
 }
 
 async function excluirSolicitacao(id){
   if(confirm("Deseja remover esta solicitação?")){
     solicitacoes = solicitacoes.filter(s => s.id !== id);
+    if(supabaseClient) await supabaseClient.from('solicitacoes').delete().eq('id', id);
     registrarLog("Excluiu a solicitação " + id);
     await saveData();
     render();
@@ -507,7 +503,6 @@ async function salvarMeuPerfil(nome, login, senha){
   render();
 }
 
-// RENDERIZADOR DO GRÁFICO DUPLO (CANVAS NATIVO)
 function drawChartCanvas(){
   setTimeout(() => {
     const canvas = document.getElementById('chartCanvas');
@@ -519,10 +514,7 @@ function drawChartCanvas(){
     const dataAdm = storeData.notasAdm || Array(12).fill(0);
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    
-    // Linhas de Grade Verticais e Horizontais
-    ctx.strokeStyle = "#ECE6D8";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#ECE6D8"; ctx.lineWidth = 1;
     for(let i=1; i<=4; i++){
       let y = (canvas.height/5)*i;
       ctx.beginPath(); ctx.moveTo(35, y); ctx.lineTo(canvas.width-15, y); ctx.stroke();
@@ -530,11 +522,8 @@ function drawChartCanvas(){
 
     const stepX = (canvas.width - 55) / 11;
 
-    // Função interna para desenhar cada linha
     function drawLine(data, color){
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.beginPath();
       data.forEach((val, i) => {
         let x = 35 + (i * stepX);
         let numVal = parseFloat(val) || 0;
@@ -543,32 +532,22 @@ function drawChartCanvas(){
       });
       ctx.stroke();
 
-      // Desenhar bolinhas e texto da nota
       data.forEach((val, i) => {
         let x = 35 + (i * stepX);
         let numVal = parseFloat(val) || 0;
         let y = canvas.height - 30 - ((numVal - 5) / 5) * (canvas.height - 45);
-
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
-
-        ctx.fillStyle = "#20291F";
-        ctx.font = "9px IBM Plex Sans";
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#20291F"; ctx.font = "9px IBM Plex Sans";
         ctx.fillText(numVal.toString(), x-6, color === "#4B6B4F" ? y-7 : y+12);
       });
     }
 
-    // Desenhar Linha 1: Auditoria Presencial (Verde)
     drawLine(dataPresencial, "#4B6B4F");
-
-    // Desenhar Linha 2: Auditoria Adm (Azul)
     drawLine(dataAdm, "#49606B");
 
-    // Labels dos Meses (Eixo X)
     MESES.forEach((m, i) => {
       let x = 35 + (i * stepX);
-      ctx.fillStyle = "#5C6259";
-      ctx.font = "10px IBM Plex Sans";
+      ctx.fillStyle = "#5C6259"; ctx.font = "10px IBM Plex Sans";
       ctx.fillText(m, x-8, canvas.height-8);
     });
   }, 50);
@@ -641,7 +620,6 @@ function renderLogin(){
     + '</div>';
 }
 
-// --- VISÃO DO LÍDER ---
 function renderVisaoLider(){
   const permitidas = getLojasPermitidas(usuarioLogado);
   if(!permitidas.length){
@@ -744,7 +722,6 @@ function renderVisaoLider(){
     + bodyAba;
 }
 
-// --- VISÃO DA CENTRAL ---
 function renderVisaoCentral(){
   const setoresPermitidos = getSetoresPermitidos(usuarioLogado);
   if(!setoresPermitidos.length){
@@ -788,10 +765,8 @@ function renderVisaoCentral(){
     + '<div class="kanban">'+colsHTML+'</div>';
 }
 
-// PAINEL DE NOTAS MENSAIS (SUPERVISÃO E DIRETORIA)
 function renderPainelAuditorias(tipo){
   const titulo = tipo === 'presencial' ? 'Auditorias Presenciais Mensais (Supervisão Operacional)' : 'Auditorias Administrativas Mensais (Diretoria)';
-  
   let headerMeses = MESES.map(m => '<th style="text-align:center;">'+m.toUpperCase()+'</th>').join('');
 
   let rows = lojas.map(loja => {
@@ -1033,7 +1008,6 @@ function render(){
     + renderMainContent();
 }
 
-// --- EVENTOS E LISTENERS ---
 document.addEventListener('click', function(e){
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
@@ -1045,8 +1019,7 @@ document.addEventListener('click', function(e){
     logout();
   } else if(action === 'set-tab'){
     abaAtiva = btn.getAttribute('data-tab');
-    searchTerm = "";
-    currentPage = 1;
+    searchTerm = ""; currentPage = 1;
     render();
   } else if(action === 'prev-page'){
     if(currentPage > 1){ currentPage--; render(); }
