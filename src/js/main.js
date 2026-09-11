@@ -189,26 +189,66 @@ async function salvarUsuarioAdmin() {
     return;
   }
 
-  const { data, error } = await supabaseClient.rpc('criar_novo_usuario', {
-    novo_email: novoUsuarioObj.usuario.trim(),
-    nova_senha: novoUsuarioObj.senha.trim(),
-    novo_nome: novoUsuarioObj.nome.trim(),
-    nova_tag: novoUsuarioObj.tag,
-    novas_lojas: novoUsuarioObj.tag === 'Líder' ? novoUsuarioObj.lojasAcesso : [],
-    novos_setores: novoUsuarioObj.tag === 'Central' ? novoUsuarioObj.setoresAcesso : [],
-    novo_tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : ''
-  });
+  const emailLimpo = novoUsuarioObj.usuario.trim().toLowerCase();
+  const senha = novoUsuarioObj.senha.trim();
+  const nome = novoUsuarioObj.nome.trim();
 
-  if (error || (data && !data.sucesso)) {
-    alert("Erro ao criar usuário: " + (error ? error.message : (data ? data.erro : "Erro desconhecido")));
-  } else {
-    alert("Usuário " + novoUsuarioObj.nome + " criado com sucesso!");
-    await registrarLog("Cadastrou novo usuário: " + novoUsuarioObj.usuario);
-    
-    novoUsuarioObj = { usuario: "", senha: "", tag: "Líder", nome: "", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao" };
-    usuarioEdicaoIndex = null;
-    await loadData();
-    render();
+  try {
+    // Cria um cliente temporário sem afetar a sessão atual da Diretoria
+    const tempSupabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false }
+    });
+
+    // 1. Cadastra o novo usuário no Supabase Auth
+    const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+      email: emailLimpo,
+      password: senha,
+      options: {
+        data: { nome: nome }
+      }
+    });
+
+    if (authError) {
+      alert("Erro no cadastro de Auth: " + authError.message);
+      return;
+    }
+
+    if (!authData.user) {
+      alert("Não foi possível gerar o usuário no Auth.");
+      return;
+    }
+
+    const newUid = authData.user.id;
+
+    // 2. Salva/Atualiza o perfil na tabela pública usuarios
+    const perfilPayload = {
+      id: newUid,
+      nome: nome,
+      email: emailLimpo,
+      tag: novoUsuarioObj.tag,
+      lojas_acesso: novoUsuarioObj.tag === 'Líder' ? novoUsuarioObj.lojasAcesso : [],
+      setores_acesso: novoUsuarioObj.tag === 'Central' ? novoUsuarioObj.setoresAcesso : [],
+      tipo_supervisao: novoUsuarioObj.tag === 'Supervisão' ? novoUsuarioObj.tipoSupervisao : ''
+    };
+
+    const { error: dbError } = await supabaseClient
+      .from('usuarios')
+      .upsert(perfilPayload);
+
+    if (dbError) {
+      console.error("Erro ao salvar perfil:", dbError);
+      alert("Conta criada no Auth, mas ocorreu erro ao salvar o perfil: " + dbError.message);
+    } else {
+      alert("Usuário " + nome + " cadastrado com sucesso!");
+      await registrarLog("Cadastrou novo usuário: " + emailLimpo);
+      novoUsuarioObj = { usuario: "", senha: "", tag: "Líder", nome: "", lojasAcesso: [], setoresAcesso: [], tipoSupervisao: "operacao" };
+      await loadData();
+      render();
+    }
+
+  } catch (err) {
+    console.error("Erro inesperado:", err);
+    alert("Erro ao processar cadastro: " + err.message);
   }
 }
 
