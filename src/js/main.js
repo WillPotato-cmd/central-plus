@@ -34,6 +34,9 @@ let currentPage = 1;
 const ITEMS_PER_PAGE = 5;
 
 let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+let novaLojaNome = "";
+let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
+let usuarioEdicaoIndex = null;
 
 async function fetchUserIP(){
   try{
@@ -234,6 +237,56 @@ async function excluirSolicitacao(id){
   }
 }
 
+function drawChartCanvas(){
+  setTimeout(() => {
+    const canvas = document.getElementById('chartCanvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const storeData = auditoriasStore[lojaAtual] || {};
+    const dataPresencial = storeData.notasPresenciais || Array(12).fill(0);
+    const dataAdm = storeData.notasAdm || Array(12).fill(0);
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = "#ECE6D8"; ctx.lineWidth = 1;
+    for(let i=1; i<=4; i++){
+      let y = (canvas.height/5)*i;
+      ctx.beginPath(); ctx.moveTo(35, y); ctx.lineTo(canvas.width-15, y); ctx.stroke();
+    }
+
+    const stepX = (canvas.width - 55) / 11;
+
+    function drawLine(data, color){
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.beginPath();
+      data.forEach((val, i) => {
+        let x = 35 + (i * stepX);
+        let numVal = parseFloat(val) || 0;
+        let y = canvas.height - 30 - ((numVal - 5) / 5) * (canvas.height - 45);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+
+      data.forEach((val, i) => {
+        let x = 35 + (i * stepX);
+        let numVal = parseFloat(val) || 0;
+        let y = canvas.height - 30 - ((numVal - 5) / 5) * (canvas.height - 45);
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#20291F"; ctx.font = "9px IBM Plex Sans";
+        ctx.fillText(numVal.toString(), x-6, color === "#4B6B4F" ? y-7 : y+12);
+      });
+    }
+
+    drawLine(dataPresencial, "#4B6B4F");
+    drawLine(dataAdm, "#49606B");
+
+    MESES.forEach((m, i) => {
+      let x = 35 + (i * stepX);
+      ctx.fillStyle = "#5C6259"; ctx.font = "10px IBM Plex Sans";
+      ctx.fillText(m, x-8, canvas.height-8);
+    });
+  }, 50);
+}
+
 function slipHTML(s, showLoja){
   let canManage = usuarioLogado.tag === "Diretoria" || usuarioLogado.tag === "Central" || usuarioLogado.tag === "Supervisão";
   let actions = '';
@@ -308,14 +361,50 @@ function renderVisaoLider(){
   }
 
   let selectLojaHTML = permitidas.map(l => '<option value="'+esc(l)+'" '+(l===lojaAtual?'selected':'')+'>'+esc(l)+'</option>').join('');
+
   const solicitacoesLoja = solicitacoes.filter(s => s.loja === lojaAtual);
   const abertas = solicitacoesLoja.filter(s => s.status !== 'concluido');
   const historico = solicitacoesLoja.filter(s => s.status === 'concluido');
+  
+  const auditData = auditoriasStore[lojaAtual] || {notasPresenciais: Array(12).fill("-"), notasAdm: Array(12).fill("-")};
+  const ultimaNotaPresencial = auditData.notasPresenciais ? auditData.notasPresenciais[auditData.notasPresenciais.length - 1] : "-";
+  const ultimaNotaAdm = auditData.notasAdm ? auditData.notasAdm[auditData.notasAdm.length - 1] : "-";
 
   let bodyAba = '';
 
   if(abaAtiva === 'dashboard'){
-    bodyAba = '<div class="card"><h2>Resumo Operacional</h2><p>Você possui <strong>'+abertas.length+'</strong> solicitações abertas nesta unidade.</p></div>';
+    drawChartCanvas();
+    bodyAba = ''
+      + '<div class="grid">'
+      + '  <div>'
+      + '    <div class="card">'
+      + '      <h2>Desempenho Atual da Unidade</h2>'
+      + '      <div style="display:flex;gap:20px;">'
+      + '        <div><small style="color:var(--ink-soft);">Auditoria Presencial</small><div class="audit-score" style="color:var(--moss);">'+esc(ultimaNotaPresencial)+'</div></div>'
+      + '        <div><small style="color:var(--ink-soft);">Auditoria Adm</small><div class="audit-score" style="color:var(--steel);">'+esc(ultimaNotaAdm)+'</div></div>'
+      + '      </div>'
+      + '    </div>'
+      + '    <div class="card">'
+      + '      <h2>Evolução Anual de Auditorias</h2>'
+      + '      <canvas id="chartCanvas" width="320" height="220"></canvas>'
+      + '      <div class="chart-legend">'
+      + '        <span><div class="legend-box" style="background:#4B6B4F;"></div> Auditoria Presencial</span>'
+      + '        <span><div class="legend-box" style="background:#49606B;"></div> Auditoria Administrativa</span>'
+      + '      </div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div>'
+      + '    <div class="card">'
+      + '      <h2>Resumo Operacional</h2>'
+      + '      <p style="font-size:0.9rem;">Você possui <strong>'+abertas.length+'</strong> solicitações em aberto nesta unidade.</p>'
+      + '    </div>'
+      + '    <div class="card">'
+      + '      <h2>Documentos de Auditoria</h2>'
+      + '      <div class="history-box"><strong>Relatório Presencial:</strong> '+esc(auditData.arquivoPresencial || 'Nenhum enviado')+'</div>'
+      + '      <div class="history-box"><strong>Relatório Adm:</strong> '+esc(auditData.arquivoAdm || 'Nenhum enviado')+'</div>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
   } else if(abaAtiva === 'nova_solicitacao'){
     let setorOpts = SETORES_CENTRAL.map(s => '<option value="'+s+'">'+s+'</option>').join('');
     let priBtns = ['baixa','normal','urgente'].map(p => 
@@ -328,6 +417,7 @@ function renderVisaoLider(){
       + '  <div class="field"><label>Setor de Destino</label><select id="categoria-select">'+setorOpts+'</select></div>'
       + '  <div class="field"><label>Título da Demanda</label><input id="titulo-input" placeholder="Ex: Manutenção no forno" value="'+esc(novaSolicitacao.titulo)+'"/></div>'
       + '  <div class="field"><label>Detalhes</label><textarea id="descricao-input" placeholder="Descreva a demanda">'+esc(novaSolicitacao.descricao)+'</textarea></div>'
+      + '  <div class="field"><label>Anexar Foto (opcional)</label><input type="file" id="imagem-input" accept="image/*"/></div>'
       + '  <div class="field"><label>Prioridade</label><div class="priority-row">'+priBtns+'</div></div>'
       + '  <button class="submit-btn" data-action="criar-solicitacao">Enviar para a Central</button>'
       + '</div>';
@@ -335,7 +425,7 @@ function renderVisaoLider(){
     let sourceList = abaAtiva === 'solicitacoes' ? abertas : historico;
     let filtered = sourceList.filter(s => {
       const q = searchTerm.toLowerCase();
-      return s.id.toLowerCase().includes(q) || s.titulo.toLowerCase().includes(q) || s.setor.toLowerCase().includes(q);
+      return s.id.toLowerCase().includes(q) || s.titulo.toLowerCase().includes(q) || s.setor.toLowerCase().includes(q) || (s.descricao && s.descricao.toLowerCase().includes(q));
     });
 
     const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -362,27 +452,183 @@ function renderVisaoCentral(){
     return '<div class="empty">Você não possui setores vinculados. Contate a Diretoria.</div>';
   }
 
-  let filtrados = solicitacoes.filter(s => setoresPermitidos.includes(s.setor));
+  const pesoPrioridade = { urgente: 1, normal: 2, baixa: 3 };
+
+  let filtrados = solicitacoes.filter(s => {
+    const matchSetorPermitido = setoresPermitidos.includes(s.setor);
+    const matchSetorFiltro = filtroSetor === 'todos' || s.setor === filtroSetor;
+    const matchLojaFiltro = filtroLoja === 'todas' || s.loja === filtroLoja;
+    return matchSetorPermitido && matchSetorFiltro && matchLojaFiltro;
+  });
+
+  filtrados.sort((a, b) => {
+    if(pesoPrioridade[a.prioridade] !== pesoPrioridade[b.prioridade]){
+      return pesoPrioridade[a.prioridade] - pesoPrioridade[b.prioridade];
+    }
+    return (a.timestamp || 0) - (b.timestamp || 0);
+  });
+
+  let setorOpts = '<option value="todos">Todos os meus setores</option>';
+  setoresPermitidos.forEach(s => { setorOpts += '<option value="'+s+'" '+(filtroSetor===s?'selected':'')+'>'+s+'</option>'; });
+
+  let lojaOpts = '<option value="todas">Todas as lojas</option>';
+  lojas.forEach(l => { lojaOpts += '<option value="'+esc(l)+'" '+(filtroLoja===l?'selected':'')+'>'+esc(l)+'</option>'; });
+
   const cols = ['pendente','em_andamento','aguardando','concluido'];
-  
   let colsHTML = cols.map(c => {
     const list = filtrados.filter(s=>s.status===c);
     const body = list.length ? list.map(s=>slipHTML(s,true)).join('') : '<div class="empty">Vazio</div>';
     return '<div><div class="col-head">'+STATUS_LABEL[c]+' <small>'+list.length+'</small></div>'+body+'</div>';
   }).join('');
 
-  return '<div class="kanban">'+colsHTML+'</div>';
+  return ''
+    + '<div class="filter-row">'
+    + '  <label style="font-size:0.82rem;color:var(--ink-soft);">Setor:</label><select id="filtro-setor-select">'+setorOpts+'</select>'
+    + '  <label style="font-size:0.82rem;color:var(--ink-soft);">Loja:</label><select id="filtro-loja-select">'+lojaOpts+'</select>'
+    + '</div>'
+    + '<div class="kanban">'+colsHTML+'</div>';
+}
+
+function renderPainelAuditorias(tipo){
+  const titulo = tipo === 'presencial' ? 'Auditorias Presenciais Mensais (Supervisão Operacional)' : 'Auditorias Administrativas Mensais (Diretoria)';
+  let headerMeses = MESES.map(m => '<th style="text-align:center;">'+m.toUpperCase()+'</th>').join('');
+
+  let rows = lojas.map(loja => {
+    const data = auditoriasStore[loja] || {};
+    const notasList = (tipo === 'presencial' ? data.notasPresenciais : data.notasAdm) || Array(12).fill(0);
+    const arqAtual = tipo === 'presencial' ? data.arquivoPresencial : data.arquivoAdm;
+
+    let inputsMeses = MESES.map((m, idx) => ''
+      + '<td style="padding:4px;"><input style="width:45px;text-align:center;padding:4px 2px;font-size:0.78rem;" data-audit-mes="'+idx+'" data-audit-tipo="'+tipo+'" data-loja="'+esc(loja)+'" value="'+esc(notasList[idx] !== undefined ? notasList[idx] : '')+'"/></td>'
+    ).join('');
+
+    return ''
+      + '<tr>'
+      + '  <td><strong>'+esc(loja)+'</strong></td>'
+      +    inputsMeses
+      + '  <td><input type="file" style="font-size:0.75rem;" data-audit-file="'+tipo+'" data-loja="'+esc(loja)+'"/> <br><small>'+esc(arqAtual || 'Nenhum enviado')+'</small></td>'
+      + '</tr>';
+  }).join('');
+
+  return ''
+    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">'+titulo+'</h2>'
+    + '<div class="table-responsive">'
+    + '  <table class="table-list"><thead><tr><th>LOJA</th>'+headerMeses+'<th>DOCUMENTO ANEXO</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '</div>';
+}
+
+function renderLogsSistema(){
+  const q = searchTerm.toLowerCase();
+  let filteredLogs = logs.filter(l => 
+    (l.usuario_nome && l.usuario_nome.toLowerCase().includes(q)) || 
+    (l.acao && l.acao.toLowerCase().includes(q)) || 
+    (l.ip && l.ip.toLowerCase().includes(q))
+  );
+
+  const LOGS_PER_PAGE = 10;
+  const startIdx = (currentPage - 1) * LOGS_PER_PAGE;
+  const paginatedLogs = filteredLogs.slice(startIdx, startIdx + LOGS_PER_PAGE);
+
+  let rows = paginatedLogs.length ? paginatedLogs.map(l => ''
+    + '<tr>'
+    + '  <td><strong>'+esc(l.usuario_nome || 'Sistema')+'</strong></td>'
+    + '  <td><span class="tag">'+esc(l.ip || '127.0.0.1')+'</span></td>'
+    + '  <td>'+esc(l.acao)+'</td>'
+    + '</tr>'
+  ).join('') : '<tr><td colspan="3" class="empty">Nenhum log encontrado.</td></tr>';
+
+  return ''
+    + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin-bottom:14px;">Registro de Ações do Sistema (Logs Auditados)</h2>'
+    + renderSearchPaginationBar(filteredLogs.length, LOGS_PER_PAGE)
+    + '<table class="table-list"><thead><tr><th>USUÁRIO</th><th>ENDEREÇO IP</th><th>AÇÃO REGISTRADA</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 function renderVisaoDiretoria(){
   if(abaAtiva === 'dashboard'){
-    return '<div class="card"><h2>Balanço Geral de Unidades</h2><p>Total de solicitações registradas no sistema: <strong>'+solicitacoes.length+'</strong></p></div>';
-  } else if(abaAtiva === 'usuarios'){
-    let list = usuariosList.map(u => '<tr><td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.email)+'</small></td><td><span class="tag">'+esc(u.tag)+'</span></td></tr>').join('');
-    return '<table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>';
+    const total = solicitacoes.length;
+    const pendentes = solicitacoes.filter(s => s.status === 'pendente').length;
+    const emAndamento = solicitacoes.filter(s => s.status === 'em_andamento').length;
+    const aguardando = solicitacoes.filter(s => s.status === 'aguardando').length;
+    const concluidos = solicitacoes.filter(s => s.status === 'concluido').length;
+
+    let storeCardsHTML = lojas.map(loja => {
+      const storeSolicitacoes = solicitacoes.filter(s => s.loja === loja);
+      const totalLoja = storeSolicitacoes.length;
+      const concLoja = storeSolicitacoes.filter(s => s.status === 'concluido').length;
+      const pct = totalLoja ? Math.round((concLoja / totalLoja) * 100) : 0;
+
+      return ''
+        + '<div class="store-card">'
+        + '  <div class="store-card-header">'
+        + '    <div class="store-card-title">'+esc(loja)+'</div>'
+        + '    <span class="tag">'+pct+'% resolvido</span>'
+        + '  </div>'
+        + '  <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:'+pct+'%;"></div></div>'
+        + '</div>';
+    }).join('');
+
+    return ''
+      + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.3rem;margin:0 0 16px;">Balanço Executivo de Rede</h2>'
+      + '<div class="kpi-grid">'
+      + '  <div class="kpi-card"><span class="kpi-title">TOTAL</span><span class="kpi-value">'+total+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">PENDENTES</span><span class="kpi-value" style="color:var(--mustard);">'+pendentes+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">EM ANDAMENTO</span><span class="kpi-value" style="color:var(--steel);">'+emAndamento+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">AGUARDANDO</span><span class="kpi-value" style="color:var(--rust);">'+aguardando+'</span></div>'
+      + '  <div class="kpi-card"><span class="kpi-title">CONCLUÍDAS</span><span class="kpi-value" style="color:var(--moss);">'+concluidos+'</span></div>'
+      + '</div>'
+      + '<h2 style="font-family:\'Fraunces\',serif;font-size:1.2rem;margin:24px 0 14px;">Desempenho por Unidade</h2>'
+      + '<div class="store-summary-grid">'+storeCardsHTML+'</div>';
+  } else if(abaAtiva === 'audit_adm'){
+    return renderPainelAuditorias('adm');
+  } else if(abaAtiva === 'audit_presencial'){
+    return renderPainelAuditorias('presencial');
   } else if(abaAtiva === 'logs'){
-    let list = logs.map(l => '<tr><td><strong>'+esc(l.usuario_nome || 'Sistema')+'</strong></td><td>'+esc(l.acao)+'</td></tr>').join('');
-    return '<table class="table-list"><thead><tr><th>USUÁRIO</th><th>AÇÃO</th></tr></thead><tbody>'+list+'</tbody></table>';
+    return renderLogsSistema();
+  } else if(abaAtiva === 'lojas'){
+    let filteredLojas = lojas.filter(l => l.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredLojas.map((l, idx) => ''
+      + '<tr>'
+      + '  <td>'+esc(l)+'</td>'
+      + '  <td>'+solicitacoes.filter(s=>s.loja===l).length+' solicitações</td>'
+      + '  <td class="table-actions">'
+      + '    <button class="btn-sm danger" data-action="delete-loja" data-idx="'+idx+'">Excluir</button>'
+      + '  </td>'
+      + '</tr>'
+    ).join('');
+
+    return ''
+      + '<div class="grid">'
+      + '  <div class="card">'
+      + '    <h2>Cadastrar Nova Loja</h2>'
+      + '    <div class="field"><label>Nome da Unidade</label><input id="nova-loja-input" value="'+esc(novaLojaNome)+'"/></div>'
+      + '    <button class="submit-btn" data-action="save-loja">Salvar Loja</button>'
+      + '  </div>'
+      + '  <div>'
+      +    renderSearchPaginationBar(filteredLojas.length, 8)
+      + '  <table class="table-list"><thead><tr><th>LOJA</th><th>HISTÓRICO</th><th>AÇÕES</th></tr></thead><tbody>'+list+'</tbody></table></div>'
+      + '</div>';
+  } else if(abaAtiva === 'usuarios'){
+    let filteredUsers = usuariosList.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    let list = filteredUsers.map((u) => ''
+      + '<tr>'
+      + '  <td><strong>'+esc(u.nome)+'</strong><br><small>'+esc(u.email)+'</small></td>'
+      + '  <td><span class="tag">'+esc(u.tag)+'</span></td>'
+      + '</tr>'
+    ).join('');
+
+    return ''
+      + '<div>'
+      + '  <h2>Gestão de Usuários e Permissões</h2>'
+      +    renderSearchPaginationBar(filteredUsers.length, 8)
+      + '  <table class="table-list"><thead><tr><th>USUÁRIO</th><th>TAG</th></tr></thead><tbody>'+list+'</tbody></table>'
+      + '</div>';
+  } else if(abaAtiva === 'perfil'){
+    return ''
+      + '<div class="card" style="max-width:500px;margin:0 auto;">'
+      + '  <h2>Editar Meu Perfil</h2>'
+      + '  <div class="field"><label>Nome Exibido</label><input id="perfil-nome-input" value="'+esc(usuarioLogado.nome)+'"/></div>'
+      + '  <div class="field"><label>E-mail</label><input id="perfil-email-input" disabled value="'+esc(usuarioLogado.email)+'"/></div>'
+      + '</div>';
   }
 }
 
@@ -391,16 +637,25 @@ function renderMainContent(){
     return ''
       + '<div class="nav-tabs">'
       + '  <button class="'+(abaAtiva==='dashboard'?'active':'')+'" data-action="set-tab" data-tab="dashboard">Balanço Geral</button>'
+      + '  <button class="'+(abaAtiva==='audit_adm'?'active':'')+'" data-action="set-tab" data-tab="audit_adm">Auditoria Adm (12 Meses)</button>'
+      + '  <button class="'+(abaAtiva==='audit_presencial'?'active':'')+'" data-action="set-tab" data-tab="audit_presencial">Auditoria Presencial (12 Meses)</button>'
       + '  <button class="'+(abaAtiva==='central'?'active':'')+'" data-action="set-tab" data-tab="central">Painel Central</button>'
       + '  <button class="'+(abaAtiva==='solicitacoes'?'active':'')+'" data-action="set-tab" data-tab="solicitacoes">Visão Líderes</button>'
+      + '  <button class="'+(abaAtiva==='lojas'?'active':'')+'" data-action="set-tab" data-tab="lojas">Lojas</button>'
       + '  <button class="'+(abaAtiva==='usuarios'?'active':'')+'" data-action="set-tab" data-tab="usuarios">Usuários</button>'
       + '  <button class="'+(abaAtiva==='logs'?'active':'')+'" data-action="set-tab" data-tab="logs">Logs do Sistema</button>'
+      + '  <button class="'+(abaAtiva==='perfil'?'active':'')+'" data-action="set-tab" data-tab="perfil">Meu Perfil</button>'
       + '</div>'
       + (abaAtiva==='solicitacoes' ? renderVisaoLider() : (abaAtiva==='central' ? renderVisaoCentral() : renderVisaoDiretoria()));
   }
 
-  if(usuarioLogado.tag === "Líder") return renderVisaoLider();
-  if(usuarioLogado.tag === "Central" || usuarioLogado.tag === "Supervisão") return renderVisaoCentral();
+  if(usuarioLogado.tag === "Líder"){
+    return renderVisaoLider();
+  }
+
+  if(usuarioLogado.tag === "Central" || usuarioLogado.tag === "Supervisão"){
+    return renderVisaoCentral();
+  }
 }
 
 function render(){
@@ -443,12 +698,28 @@ document.addEventListener('click', function(e){
     render();
   } else if(action === 'criar-solicitacao'){
     criarSolicitacao();
+  } else if(action === 'save-loja'){
+    if(novaLojaNome.trim()){
+      lojas.push(novaLojaNome.trim());
+      initAuditorias();
+      novaLojaNome = "";
+      render();
+    }
+  } else if(action === 'delete-loja'){
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    if(confirm('Excluir loja?')){
+      lojas.splice(idx,1);
+      render();
+    }
   } else if(action === 'mudar-status'){
     mudarStatus(btn.getAttribute('data-id'), btn.getAttribute('data-status'));
   } else if(action === 'responder'){
     const id = btn.getAttribute('data-id');
     const input = document.querySelector('[data-resp-input="'+id+'"]');
-    if(input){ responder(id, input.value); input.value = ""; }
+    if(input){
+      responder(id, input.value);
+      input.value = "";
+    }
   } else if(action === 'excluir'){
     excluirSolicitacao(btn.getAttribute('data-id'));
   }
@@ -460,6 +731,33 @@ document.addEventListener('change', function(e){
     render();
   } else if(e.target.id === 'categoria-select'){
     novaSolicitacao.setor = e.target.value;
+  } else if(e.target.id === 'filtro-loja-select'){
+    filtroLoja = e.target.value;
+    render();
+  } else if(e.target.id === 'filtro-setor-select'){
+    filtroSetor = e.target.value;
+    render();
+  } else if(e.target.hasAttribute('data-audit-mes')){
+    const mesIdx = parseInt(e.target.getAttribute('data-audit-mes'));
+    const tipo = e.target.getAttribute('data-audit-tipo');
+    const lj = e.target.getAttribute('data-loja');
+    
+    if(!auditoriasStore[lj]) auditoriasStore[lj] = {};
+    if(tipo === 'presencial'){
+      if(!auditoriasStore[lj].notasPresenciais) auditoriasStore[lj].notasPresenciais = Array(12).fill(0);
+      auditoriasStore[lj].notasPresenciais[mesIdx] = parseFloat(e.target.value) || 0;
+    } else {
+      if(!auditoriasStore[lj].notasAdm) auditoriasStore[lj].notasAdm = Array(12).fill(0);
+      auditoriasStore[lj].notasAdm[mesIdx] = parseFloat(e.target.value) || 0;
+    }
+    registrarLog("Atualizou nota do mês "+MESES[mesIdx]+" ("+tipo+") para a loja "+lj);
+  } else if(e.target.id === 'imagem-input'){
+    const file = e.target.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = function(evt){ novaSolicitacao.imagem = evt.target.result; };
+      reader.readAsDataURL(file);
+    }
   }
 });
 
@@ -470,6 +768,7 @@ document.addEventListener('input', function(e){
     render();
   } else if(e.target.id === 'titulo-input') novaSolicitacao.titulo = e.target.value;
   else if(e.target.id === 'descricao-input') novaSolicitacao.descricao = e.target.value;
+  else if(e.target.id === 'nova-loja-input') novaLojaNome = e.target.value;
 });
 
 document.addEventListener('keydown', function(e){
