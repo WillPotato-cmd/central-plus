@@ -14,6 +14,7 @@ const SETORES_CENTRAL = [
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const STATUS_LABEL = { pendente: "Pendente", em_andamento: "Em andamento", aguardando: "Aguardando", concluido: "Concluído" };
+const BUCKET_ANEXOS = 'anexos-solicitacoes';
 
 let lojas = [...LOJAS_PADRAO];
 let usuariosList = [];
@@ -34,7 +35,7 @@ let searchTerm = "";
 let currentPage = 1;
 const ITEMS_PER_PAGE = 5;
 
-let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+let novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", arquivoImagem:null};
 let novaLojaNome = "";
 let novoUsuarioObj = {usuario:"", senha:"", tag:"Líder", nome:"", lojasAcesso:[], setoresAcesso:[], tipoSupervisao:"operacao"};
 let usuarioEdicaoId = null;
@@ -66,7 +67,10 @@ async function loadData(){
   if (supabaseClient && usuarioLogado) {
     try {
       const { data: solData } = await supabaseClient.from('solicitacoes').select('*');
-      if (solData) solicitacoes = solData;
+      if (solData) {
+        solicitacoes = solData;
+        await resolverImagensSolicitacoes(solicitacoes);
+      }
 
       const { data: logsData } = await supabaseClient.from('logs').select('*').order('id', { ascending: false });
       if (logsData) logs = logsData;
@@ -106,17 +110,80 @@ function nextId(){
   return "SOL-" + String(n).padStart(4,'0');
 }
 
+async function uploadAnexo(file){
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const nomeArquivo = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+    const caminho = (lojaAtual || 'geral') + '/' + nomeArquivo;
+
+    const { data, error } = await supabaseClient.storage
+      .from(BUCKET_ANEXOS)
+      .upload(caminho, file, { cacheControl: '3600', upsert: false });
+
+    if (error) {
+      console.error("Erro ao enviar anexo:", error);
+      alert("Não foi possível enviar a foto: " + error.message);
+      return "";
+    }
+
+    return data.path;
+  } catch (e) {
+    console.error("Erro inesperado ao enviar anexo:", e);
+    alert("Erro inesperado ao enviar a foto.");
+    return "";
+  }
+}
+
+async function gerarUrlAssinada(caminho){
+  if (!caminho) return "";
+  try {
+    const { data, error } = await supabaseClient.storage
+      .from(BUCKET_ANEXOS)
+      .createSignedUrl(caminho, 3600); // válida por 1 hora
+
+    if (error) {
+      console.error("Erro ao gerar link da foto:", error);
+      return "";
+    }
+    return data.signedUrl;
+  } catch (e) {
+    console.error("Erro inesperado ao gerar link da foto:", e);
+    return "";
+  }
+}
+
+async function resolverImagensSolicitacoes(lista){
+  await Promise.all(
+    lista.filter(s => s.imagem).map(async (s) => {
+      s._imagemUrl = await gerarUrlAssinada(s.imagem);
+    })
+  );
+}
+
+async function excluirAnexoStorage(caminho){
+  if (!caminho || !supabaseClient) return;
+  try {
+    await supabaseClient.storage.from(BUCKET_ANEXOS).remove([caminho]);
+  } catch (e) {
+    console.error("Erro ao remover anexo do storage:", e);
+  }
+}
+
 function iniciarRealtime(){
   if(!supabaseClient || realtimeChannel) return;
   realtimeChannel = supabaseClient
     .channel('solicitacoes-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, (payload) => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, async (payload) => {
       if(payload.eventType === 'INSERT'){
         if(!solicitacoes.find(s => s.id === payload.new.id)){
-          solicitacoes = [payload.new, ...solicitacoes];
+          const novo = payload.new;
+          if(novo.imagem) novo._imagemUrl = await gerarUrlAssinada(novo.imagem);
+          solicitacoes = [novo, ...solicitacoes];
         }
       } else if(payload.eventType === 'UPDATE'){
-        solicitacoes = solicitacoes.map(s => s.id === payload.new.id ? payload.new : s);
+        const atualizado = payload.new;
+        if(atualizado.imagem) atualizado._imagemUrl = await gerarUrlAssinada(atualizado.imagem);
+        solicitacoes = solicitacoes.map(s => s.id === atualizado.id ? atualizado : s);
       } else if(payload.eventType === 'DELETE'){
         solicitacoes = solicitacoes.filter(s => s.id !== payload.old.id);
       }
@@ -393,13 +460,23 @@ async function alternarAtivoUsuario(id, ativarPara){
 async function criarSolicitacao(){
   if(!novaSolicitacao.titulo.trim()) return;
 
+  let imagemPath = "";
+  if(novaSolicitacao.arquivoImagem){
+    imagemPath = await uploadAnexo(novaSolicitacao.arquivoImagem);
+    if(!imagemPath){
+      // uploadAnexo já mostrou o alerta com o motivo; não segue sem o anexo
+      // pra evitar criar o ticket "quebrado" sem a foto que a pessoa queria anexar.
+      return;
+    }
+  }
+
   const payload = {
     loja: lojaAtual,
     setor: novaSolicitacao.setor,
     titulo: novaSolicitacao.titulo.trim(),
     descricao: novaSolicitacao.descricao.trim(),
     prioridade: novaSolicitacao.prioridade,
-    imagem: novaSolicitacao.imagem || "",
+    imagem: imagemPath,
     status: "pendente",
     resposta: "",
     criador_id: usuarioLogado.id,
@@ -420,13 +497,16 @@ async function criarSolicitacao(){
     if (error) {
       console.error("Erro ao criar solicitação:", error);
       alert("Não foi possível enviar a solicitação: " + error.message);
+      if(imagemPath) await excluirAnexoStorage(imagemPath); // evita foto órfã no storage
       return;
     }
+
+    if(data.imagem) data._imagemUrl = await gerarUrlAssinada(data.imagem);
 
     if(!solicitacoes.find(s => s.id === data.id)){
       solicitacoes = [data, ...solicitacoes];
     }
-    novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", imagem:""};
+    novaSolicitacao = {setor:"Manutenção", titulo:"", descricao:"", prioridade:"normal", arquivoImagem:null};
     await registrarLog("Criou a solicitação " + data.id + " para " + data.loja);
     abaAtiva = "solicitacoes";
     render();
@@ -459,8 +539,10 @@ async function responder(id, texto){
 
 async function excluirSolicitacao(id){
   if(confirm("Deseja remover esta solicitação?")){
+    const alvo = solicitacoes.find(s => s.id === id);
     solicitacoes = solicitacoes.filter(s => s.id !== id);
     if(supabaseClient) await supabaseClient.from('solicitacoes').delete().eq('id', id);
+    if(alvo && alvo.imagem) await excluirAnexoStorage(alvo.imagem);
     await registrarLog("Excluiu a solicitação " + id);
     render();
   }
@@ -547,7 +629,7 @@ function slipHTML(s, showLoja){
     + '  </div>'
     + '  <div class="slip-meta"><span class="tag">'+esc(s.setor)+'</span></div>'
     + (s.descricao ? '<div class="slip-desc">'+esc(s.descricao)+'</div>' : '')
-    + (s.imagem ? '<img src="'+esc(s.imagem)+'" class="slip-img" alt="Anexo">' : '')
+    + (s.imagem ? '<img src="'+esc(s._imagemUrl || '')+'" class="slip-img" alt="Anexo">' : '')
     + (s.resposta ? '<div class="resposta">Retorno Central: '+esc(s.resposta)+'</div>' : '')
     + (actions ? '<div class="slip-actions">'+actions+'</div>' : '')
     + respRow
@@ -1050,12 +1132,7 @@ document.addEventListener('change', function(e){
       novoUsuarioObj.setoresAcesso = novoUsuarioObj.setoresAcesso.filter(item => item !== s);
     }
   } else if(e.target.id === 'imagem-input'){
-    const file = e.target.files[0];
-    if(file){
-      const reader = new FileReader();
-      reader.onload = function(evt){ novaSolicitacao.imagem = evt.target.result; };
-      reader.readAsDataURL(file);
-    }
+    novaSolicitacao.arquivoImagem = e.target.files[0] || null;
   }
 });
 
