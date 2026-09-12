@@ -27,6 +27,35 @@ let loginInfo = "";
 let viewAuth = "login"; // 'login' | 'esqueci' | 'redefinir'
 let userIP = "Buscando IP...";
 let realtimeChannel = null;
+let acoesLocaisRecentes = new Set(); // evita notificar a própria pessoa pela própria ação
+
+const TEMPO_LIMITE_INATIVIDADE_MS = 30 * 60 * 1000; // 30 minutos
+let ultimaAtividade = Date.now();
+
+function registrarAtividade(){
+  ultimaAtividade = Date.now();
+}
+
+document.addEventListener('click', registrarAtividade);
+document.addEventListener('keydown', registrarAtividade);
+
+setInterval(async () => {
+  if(usuarioLogado && (Date.now() - ultimaAtividade) > TEMPO_LIMITE_INATIVIDADE_MS){
+    await logout();
+    loginErro = "Sua sessão expirou por inatividade. Faça login novamente.";
+    render();
+  }
+}, 60 * 1000);
+
+function notificarNavegador(titulo, corpo){
+  if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  try {
+    const notif = new Notification(titulo, { body: corpo });
+    notif.onclick = () => { window.focus(); notif.close(); };
+  } catch (e) {
+    console.error("Erro ao mostrar notificação:", e);
+  }
+}
 
 // Registrado o quanto antes: se a pessoa chegou aqui através do link de
 // recuperação de senha do e-mail, o Supabase detecta o token na própria URL
@@ -192,15 +221,41 @@ function iniciarRealtime(){
     .channel('solicitacoes-realtime')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, async (payload) => {
       if(payload.eventType === 'INSERT'){
-        if(!solicitacoes.find(s => s.id === payload.new.id)){
-          const novo = payload.new;
+        const novo = payload.new;
+        const chaveLocal = 'novo:' + novo.id;
+        const foiEuQuemCriou = acoesLocaisRecentes.has(chaveLocal);
+        if(foiEuQuemCriou) acoesLocaisRecentes.delete(chaveLocal);
+
+        if(!solicitacoes.find(s => s.id === novo.id)){
           if(novo.imagem) novo._imagemUrl = await gerarUrlAssinada(novo.imagem);
           solicitacoes = [novo, ...solicitacoes];
         }
+
+        if(!foiEuQuemCriou){
+          const souGestorDoSetor = usuarioLogado.tag === 'Diretoria'
+            || usuarioLogado.tag === 'Supervisão'
+            || (usuarioLogado.tag === 'Central' && getSetoresPermitidos(usuarioLogado).includes(novo.setor));
+          if(souGestorDoSetor){
+            notificarNavegador("Nova solicitação: " + novo.titulo, novo.loja + " · " + novo.setor);
+          }
+        }
       } else if(payload.eventType === 'UPDATE'){
         const atualizado = payload.new;
+        const anterior = payload.old;
+        const chaveLocal = 'status:' + atualizado.id + ':' + atualizado.status;
+        const fuiEuQuemAlterou = acoesLocaisRecentes.has(chaveLocal);
+        if(fuiEuQuemAlterou) acoesLocaisRecentes.delete(chaveLocal);
+
         if(atualizado.imagem) atualizado._imagemUrl = await gerarUrlAssinada(atualizado.imagem);
         solicitacoes = solicitacoes.map(s => s.id === atualizado.id ? atualizado : s);
+
+        const statusRealmenteMudou = anterior && anterior.status !== undefined && anterior.status !== atualizado.status;
+        if(!fuiEuQuemAlterou && statusRealmenteMudou){
+          const souLiderDaLoja = usuarioLogado.tag === 'Líder' && getLojasPermitidas(usuarioLogado).includes(atualizado.loja);
+          if(souLiderDaLoja){
+            notificarNavegador("Solicitação " + atualizado.id + " atualizada", "Novo status: " + STATUS_LABEL[atualizado.status]);
+          }
+        }
       } else if(payload.eventType === 'DELETE'){
         solicitacoes = solicitacoes.filter(s => s.id !== payload.old.id);
       }
@@ -524,7 +579,16 @@ async function atualizarUsuarioAdmin(novaSenhaOpcional){
           body: { userId: usuarioEdicaoId, novaSenha: senhaLimpa }
         });
         if(fnError){
-          alert("Perfil salvo, mas não foi possível redefinir a senha: " + fnError.message);
+          let motivo = fnError.message;
+          try {
+            if(fnError.context && typeof fnError.context.json === 'function'){
+              const corpo = await fnError.context.json();
+              if(corpo && corpo.error) motivo = corpo.error;
+            }
+          } catch(_e) {
+            // mantém a mensagem genérica se não der pra ler o corpo do erro
+          }
+          alert("Perfil salvo, mas não foi possível redefinir a senha: " + motivo);
         } else if(resultado && resultado.error){
           alert("Perfil salvo, mas não foi possível redefinir a senha: " + resultado.error);
         } else {
@@ -612,6 +676,9 @@ async function criarSolicitacao(){
 
     if(data.imagem) data._imagemUrl = await gerarUrlAssinada(data.imagem);
 
+    acoesLocaisRecentes.add('novo:' + data.id);
+    setTimeout(() => acoesLocaisRecentes.delete('novo:' + data.id), 8000);
+
     if(!solicitacoes.find(s => s.id === data.id)){
       solicitacoes = [data, ...solicitacoes];
     }
@@ -629,6 +696,8 @@ async function mudarStatus(id, novoStatus){
   const target = solicitacoes.find(s => s.id === id);
   if(target){
     target.status = novoStatus;
+    acoesLocaisRecentes.add('status:' + id + ':' + novoStatus);
+    setTimeout(() => acoesLocaisRecentes.delete('status:' + id + ':' + novoStatus), 8000);
     await registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
     await saveData('solicitacoes', target);
   }
@@ -1157,10 +1226,13 @@ function render(){
     return;
   }
 
+  const podePedirNotificacao = typeof Notification !== 'undefined' && Notification.permission === 'default';
+
   app.innerHTML = ''
     + '<div class="topbar">'
     + '  <div class="brand"><h1>Central+</h1><span>CENTRAL DE SOLICITAÇÕES E OPERAÇÕES</span></div>'
     + '  <div class="user-info">'
+    + (podePedirNotificacao ? '    <button class="btn-sm" data-action="ativar-notificacoes">🔔 Ativar notificações</button>' : '')
     + '    <span>' + esc(usuarioLogado.nome) + ' <small class="tag">' + esc(usuarioLogado.tag) + '</small></span>'
     + '    <button class="logout-btn" data-action="logout">Sair</button>'
     + '  </div>'
@@ -1192,6 +1264,10 @@ document.addEventListener('click', function(e){
     );
   } else if(action === 'logout'){
     logout();
+  } else if(action === 'ativar-notificacoes'){
+    if(typeof Notification !== 'undefined'){
+      Notification.requestPermission().then(() => render());
+    }
   } else if(action === 'set-tab'){
     abaAtiva = btn.getAttribute('data-tab');
     searchTerm = ""; currentPage = 1;
