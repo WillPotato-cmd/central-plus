@@ -261,7 +261,9 @@ function iniciarRealtime(){
       }
       if(usuarioLogado) render();
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[Central+] Status do tempo real:', status);
+    });
 }
 
 function pararRealtime(){
