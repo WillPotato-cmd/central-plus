@@ -133,11 +133,18 @@ async function loadData(){
 async function saveData(tabela, payload){
   if (supabaseClient && tabela) {
     try {
-      await supabaseClient.from(tabela).upsert(payload);
+      const { error } = await supabaseClient.from(tabela).upsert(payload);
+      if (error) {
+        console.error("Erro ao salvar em " + tabela + ":", error);
+        return false;
+      }
+      return true;
     } catch(e) {
       console.error("Erro ao salvar no banco:", e);
+      return false;
     }
   }
+  return false;
 }
 
 async function registrarLog(acao){
@@ -697,11 +704,20 @@ async function criarSolicitacao(){
 async function mudarStatus(id, novoStatus){
   const target = solicitacoes.find(s => s.id === id);
   if(target){
+    const statusAnterior = target.status;
     target.status = novoStatus;
     acoesLocaisRecentes.add('status:' + id + ':' + novoStatus);
     setTimeout(() => acoesLocaisRecentes.delete('status:' + id + ':' + novoStatus), 8000);
-    await registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
-    await saveData('solicitacoes', target);
+    render();
+
+    const ok = await saveData('solicitacoes', { id: target.id, status: novoStatus });
+    if(ok){
+      await registrarLog("Alterou status da solicitação " + id + " para " + STATUS_LABEL[novoStatus]);
+    } else {
+      target.status = statusAnterior;
+      acoesLocaisRecentes.delete('status:' + id + ':' + novoStatus);
+      alert("Não foi possível salvar a mudança de status. Tente novamente.");
+    }
   }
   render();
 }
@@ -710,9 +726,17 @@ async function responder(id, texto){
   if(!texto.trim()) return;
   const target = solicitacoes.find(s => s.id === id);
   if(target){
+    const respostaAnterior = target.resposta;
     target.resposta = texto.trim();
-    await registrarLog("Respondeu a solicitação " + id);
-    await saveData('solicitacoes', target);
+    render();
+
+    const ok = await saveData('solicitacoes', { id: target.id, resposta: texto.trim() });
+    if(ok){
+      await registrarLog("Respondeu a solicitação " + id);
+    } else {
+      target.resposta = respostaAnterior;
+      alert("Não foi possível salvar a resposta. Tente novamente.");
+    }
   }
   render();
 }
@@ -809,7 +833,7 @@ function slipHTML(s, showLoja){
     + '  </div>'
     + '  <div class="slip-meta"><span class="tag">'+esc(s.setor)+'</span></div>'
     + (s.descricao ? '<div class="slip-desc">'+esc(s.descricao)+'</div>' : '')
-    + (s.imagem ? '<img src="'+esc(s._imagemUrl || '')+'" class="slip-img" alt="Anexo">' : '')
+    + (s.imagem ? '<img src="'+esc(s._imagemUrl || '')+'" class="slip-img" alt="Anexo" data-action="ver-imagem" data-src="'+esc(s._imagemUrl || '')+'">' : '')
     + (s.resposta ? '<div class="resposta">Retorno Central: '+esc(s.resposta)+'</div>' : '')
     + (actions ? '<div class="slip-actions">'+actions+'</div>' : '')
     + respRow
@@ -1318,6 +1342,17 @@ document.addEventListener('click', function(e){
     }
   } else if(action === 'excluir'){
     excluirSolicitacao(btn.getAttribute('data-id'));
+  } else if(action === 'ver-imagem'){
+    const src = btn.getAttribute('data-src');
+    if(!src) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'lightbox-overlay';
+    const img = document.createElement('img');
+    img.src = src;
+    img.className = 'lightbox-img';
+    overlay.appendChild(img);
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
   }
 });
 
@@ -1400,5 +1435,40 @@ document.addEventListener('keydown', function(e){
 
 (async function init(){
   await fetchUserIP();
+
+  if(supabaseClient){
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if(session && session.user){
+        const { data: perfil } = await supabaseClient
+          .from('usuarios')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if(perfil && perfil.ativo === false){
+          await supabaseClient.auth.signOut();
+        } else {
+          usuarioLogado = perfil || {
+            id: session.user.id,
+            nome: session.user.email.split('@')[0],
+            email: session.user.email,
+            tag: 'Diretoria',
+            lojas_acesso: [],
+            setores_acesso: []
+          };
+          const permitidas = getLojasPermitidas(usuarioLogado);
+          lojaAtual = permitidas.length ? permitidas[0] : (lojas[0] || "");
+          abaAtiva = "dashboard";
+          ultimaAtividade = Date.now();
+          await loadData();
+          iniciarRealtime();
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao restaurar sessão:", e);
+    }
+  }
+
   render();
 })();
