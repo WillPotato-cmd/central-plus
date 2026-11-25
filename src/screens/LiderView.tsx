@@ -7,9 +7,10 @@ import { useData } from '../context/DataContext'
 import * as api from '../lib/api'
 import { ITENS_POR_PAGINA, PRIORIDADES, SETORES_CENTRAL } from '../lib/constants'
 import { lojasPermitidas } from '../lib/permissions'
+import { Avaliacoes, NotaDaSemana } from './Avaliacoes'
 import type { DocAuditoria, NotaAuditoria, Prioridade, Solicitacao } from '../lib/types'
 
-type AbaLider = 'dashboard' | 'nova' | 'abertas' | 'historico'
+type AbaLider = 'dashboard' | 'avaliacoes' | 'nova' | 'abertas' | 'historico'
 
 const textoBusca = (s: Solicitacao) => [s.id, s.titulo, s.setor, s.descricao ?? '', s.resposta ?? ''].join(' ')
 
@@ -50,6 +51,7 @@ export function LiderView() {
         onChange={setAba}
         abas={[
           { id: 'dashboard', rotulo: 'Dashboard' },
+          { id: 'avaliacoes', rotulo: 'Avaliações' },
           { id: 'nova', rotulo: 'Nova Solicitação' },
           { id: 'abertas', rotulo: `Em Aberto (${abertas.length})` },
           { id: 'historico', rotulo: `Concluídas (${historico.length})` },
@@ -57,6 +59,7 @@ export function LiderView() {
       />
 
       {aba === 'dashboard' && <DashboardLoja loja={loja} abertas={abertas.length} />}
+      {aba === 'avaliacoes' && <Avaliacoes key={loja} loja={loja} />}
       {aba === 'nova' && <NovaSolicitacaoForm loja={loja} aoCriar={() => setAba('abertas')} />}
       {aba === 'abertas' && <ListaSolicitacoes key={'a' + loja} itens={abertas} />}
       {aba === 'historico' && <ListaSolicitacoes key={'h' + loja} itens={historico} />}
@@ -132,6 +135,10 @@ function DashboardLoja({ loja, abertas }: { loja: string; abertas: number }) {
         </div>
       </div>
       <div>
+        <div className="card">
+          <h2>Avaliações de clientes</h2>
+          <NotaDaSemana loja={loja} />
+        </div>
         <div className="card">
           <h2>Resumo Operacional</h2>
           <p>
