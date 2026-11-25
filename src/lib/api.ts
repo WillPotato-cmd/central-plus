@@ -1,4 +1,6 @@
 // Todas as chamadas ao Supabase ficam aqui. As telas só chamam estas funções.
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 import { BUCKET_ANEXOS, BUCKET_AUDITORIAS } from './constants'
 import { supabase } from './supabase'
 import type {
@@ -330,5 +332,7 @@ export async function enviarDocumento(
 export async function abrirDocumento(doc: DocAuditoria): Promise<void> {
   const url = await urlAssinada(BUCKET_AUDITORIAS, doc.caminho)
   if (!url) throw new ErroApp('Não foi possível abrir o arquivo.')
-  window.open(url, '_blank', 'noopener')
+  // No app, abre no navegador do celular (PDF etc.); no site, numa aba nova
+  if (Capacitor.isNativePlatform()) await Browser.open({ url })
+  else window.open(url, '_blank', 'noopener')
 }

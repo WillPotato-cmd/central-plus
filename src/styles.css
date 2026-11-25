@@ -31,8 +31,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .app {
   max-width: 1180px;
   margin: 0 auto;
-  padding: calc(20px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right))
-    calc(60px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left));
+  /* --safe-area-inset-* vem do app Android (Capacitor); env() do iPhone e navegadores */
+  padding: calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    calc(18px + var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    calc(60px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    calc(18px + var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
 }
 
 .loading { padding: 80px 0; text-align: center; color: var(--ink-soft); }
@@ -107,7 +110,11 @@ select, input[type='text'], input[type='email'], input[type='password'], input[t
 .form-estreito { max-width: 600px; margin: 0 auto 18px; }
 
 /* ---------------------------------------------------------------- login */
-.login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 20px; }
+.login-wrapper {
+  display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; padding: 20px;
+  padding-top: calc(20px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  padding-bottom: calc(20px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
 .login-card {
   background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 28px 24px; width: 100%; max-width: 380px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
