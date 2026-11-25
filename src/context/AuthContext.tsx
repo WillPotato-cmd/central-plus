@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { buscarPerfil, registrarLog } from '../lib/api'
 import { INATIVIDADE_MS, SENHA_MINIMA } from '../lib/constants'
-import { SITE_URL, supabase, VEIO_DO_LINK_DE_RECUPERACAO } from '../lib/supabase'
+import { ERRO_NO_LINK, SITE_URL, supabase, VEIO_DO_LINK_DE_RECUPERACAO } from '../lib/supabase'
 import type { Usuario } from '../lib/types'
 
 type Fase = 'carregando' | 'deslogado' | 'redefinir' | 'logado'
@@ -29,7 +29,7 @@ export function useAuth(): AuthValue {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [fase, setFase] = useState<Fase>('carregando')
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [aviso, setAviso] = useState('')
+  const [aviso, setAviso] = useState(ERRO_NO_LINK)
   const ultimaAtividade = useRef(Date.now())
 
   /** Carrega o perfil da sessão atual. Sem perfil ou desativado = sem acesso. */
