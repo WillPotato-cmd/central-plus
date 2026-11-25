@@ -15,10 +15,42 @@ interface AuthValue {
   sair: (motivo?: string) => Promise<void>
   enviarRecuperacao: (email: string) => Promise<{ erro?: string; info?: string }>
   salvarNovaSenha: (senha: string, confirmar: string) => Promise<string | null>
+  cancelarRedefinicao: () => Promise<void>
   recarregarPerfil: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
+
+/**
+ * O link de "esqueci minha senha" abre uma sessão temporária no Supabase.
+ * Esta marca guarda que a senha ainda NÃO foi trocada: enquanto ela existir,
+ * a sessão só serve para a tela "Nova senha", mesmo depois de F5 ou de
+ * fechar e abrir o navegador.
+ */
+const MARCA_REDEFINIR = 'centralplus:redefinir-senha'
+const marcaRedefinir = {
+  ligar() {
+    try {
+      localStorage.setItem(MARCA_REDEFINIR, '1')
+    } catch {
+      /* navegador sem armazenamento: vale só o link */
+    }
+  },
+  desligar() {
+    try {
+      localStorage.removeItem(MARCA_REDEFINIR)
+    } catch {
+      /* idem */
+    }
+  },
+  ligada(): boolean {
+    try {
+      return localStorage.getItem(MARCA_REDEFINIR) === '1'
+    } catch {
+      return false
+    }
+  },
+}
 
 export function useAuth(): AuthValue {
   const ctx = useContext(AuthContext)
@@ -59,17 +91,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
       if (evento === 'PASSWORD_RECOVERY') {
+        marcaRedefinir.ligar()
         setUsuario(null)
         setFase('redefinir')
       }
     })
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      // Chegou pelo link do e-mail: vai direto para "nova senha"
-      if (VEIO_DO_LINK_DE_RECUPERACAO && session) {
+      // Chegou pelo link do e-mail, ou chegou antes e ainda não trocou a senha:
+      // a sessão só serve para a tela "Nova senha"
+      if (session && (VEIO_DO_LINK_DE_RECUPERACAO || marcaRedefinir.ligada())) {
+        marcaRedefinir.ligar()
+        setUsuario(null)
         setFase('redefinir')
         return
       }
+      if (!session) marcaRedefinir.desligar()
       if (session?.user) {
         const erro = await abrirSessao(session.user.id)
         if (erro) {
@@ -92,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: senha,
       })
       if (error || !data.user) return 'E-mail ou senha inválidos.'
+      marcaRedefinir.desligar() // entrou com a senha certa
       const erro = await abrirSessao(data.user.id)
       if (!erro) await registrarLog('Realizou login')
       return erro
@@ -102,9 +140,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sair = useCallback(async (motivo?: string) => {
     await registrarLog(motivo ? `Sessão encerrada: ${motivo}` : 'Realizou logout')
     await supabase.auth.signOut()
+    marcaRedefinir.desligar()
     setUsuario(null)
     setFase('deslogado')
     setAviso(motivo ?? '')
+  }, [])
+
+  /** Desiste de trocar a senha: encerra a sessão aberta pelo link */
+  const cancelarRedefinicao = useCallback(async () => {
+    await supabase.auth.signOut()
+    marcaRedefinir.desligar()
+    history.replaceState(null, '', window.location.pathname)
+    setUsuario(null)
+    setFase('deslogado')
+    setAviso('')
   }, [])
 
   const enviarRecuperacao = useCallback(async (email: string) => {
@@ -122,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.updateUser({ password: senha })
     if (error) return 'Não foi possível redefinir a senha: ' + error.message
     await supabase.auth.signOut()
+    marcaRedefinir.desligar()
     history.replaceState(null, '', window.location.pathname)
     setFase('deslogado')
     setAviso('Senha redefinida! Faça login com a nova senha.')
@@ -155,7 +205,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ fase, usuario, aviso, setAviso, entrar, sair, enviarRecuperacao, salvarNovaSenha, recarregarPerfil }}
+      value={{
+        fase,
+        usuario,
+        aviso,
+        setAviso,
+        entrar,
+        sair,
+        enviarRecuperacao,
+        salvarNovaSenha,
+        cancelarRedefinicao,
+        recarregarPerfil,
+      }}
     >
       {children}
     </AuthContext.Provider>
