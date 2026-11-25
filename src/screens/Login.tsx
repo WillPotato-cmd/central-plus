@@ -6,7 +6,7 @@ import { SENHA_MINIMA } from '../lib/constants'
 type Tela = 'login' | 'esqueci'
 
 export function Login() {
-  const { fase, aviso, setAviso, entrar, enviarRecuperacao, salvarNovaSenha } = useAuth()
+  const { fase, aviso, setAviso, entrar, enviarRecuperacao, salvarNovaSenha, cancelarRedefinicao } = useAuth()
   const [tela, setTela] = useState<Tela>('login')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -55,6 +55,9 @@ export function Login() {
             <input type="password" autoComplete="new-password" value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
           </Campo>
           <button className="submit-btn" disabled={enviando}>Salvar nova senha</button>
+          <button type="button" className="submit-btn secundario" disabled={enviando} onClick={() => void cancelarRedefinicao()}>
+            Cancelar
+          </button>
         </form>
       </Cartao>
     )
