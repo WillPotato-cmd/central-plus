@@ -26,6 +26,12 @@ export function podeGerenciar(u: Usuario | null, setor: string): boolean {
   return setoresPermitidos(u).includes(setor)
 }
 
+/** Pode trocar o setor responsável? Quem atende o setor atual, e a Supervisão de operação. */
+export function podeEncaminhar(u: Usuario | null, setorAtual: string): boolean {
+  if (podeGerenciar(u, setorAtual)) return true
+  return u?.tag === 'Supervisão' && u.tipo_supervisao === 'operacao'
+}
+
 export function ehDiretoria(u: Usuario | null): boolean {
   return u?.tag === 'Diretoria'
 }

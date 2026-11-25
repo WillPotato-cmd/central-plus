@@ -7,6 +7,7 @@ import type {
   LogItem,
   NotaAuditoria,
   Prioridade,
+  Resposta,
   Solicitacao,
   Status,
   Tag,
@@ -51,7 +52,7 @@ export async function listarLojas(): Promise<Loja[]> {
 }
 
 export async function salvarLoja(nome: string, ativo = true): Promise<void> {
-  const { error } = await supabase.from('lojas').upsert({ nome, ativo })
+  const { error } = await supabase.from('lojas').upsert({ nome, ativo }, { onConflict: 'nome' })
   if (error) falhar('Não foi possível salvar a loja', error)
   await registrarLog(`${ativo ? 'Cadastrou/reativou' : 'Desativou'} a loja ${nome}`)
 }
@@ -147,6 +148,24 @@ export async function responder(id: string, texto: string): Promise<Solicitacao>
   const { data, error } = await supabase.rpc('responder_solicitacao', { p_id: id, p_texto: texto })
   if (error) falhar('Não foi possível salvar a resposta', error)
   return comImagem(data as Solicitacao)
+}
+
+export async function encaminhar(id: string, setor: string): Promise<Solicitacao> {
+  const { data, error } = await supabase.rpc('encaminhar_solicitacao', { p_id: id, p_setor: setor })
+  if (error) falhar('Não foi possível trocar o setor', error)
+  return comImagem(data as Solicitacao)
+}
+
+/** Histórico de respostas. O banco só devolve as das solicitações que o usuário pode ver. */
+export async function listarRespostas(solicitacaoId?: string): Promise<Resposta[]> {
+  let q = supabase
+    .from('respostas_solicitacao')
+    .select('id, solicitacao_id, autor_nome, autor_tag, tipo, texto, criado_em')
+    .order('criado_em', { ascending: true })
+  if (solicitacaoId) q = q.eq('solicitacao_id', solicitacaoId)
+  const { data, error } = await q
+  if (error) falhar('Erro ao carregar respostas', error)
+  return (data ?? []) as Resposta[]
 }
 
 export async function excluirSolicitacao(s: Solicitacao): Promise<void> {

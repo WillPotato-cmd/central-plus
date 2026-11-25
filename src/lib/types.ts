@@ -60,3 +60,13 @@ export interface DocAuditoria {
   caminho: string
   nome_arquivo: string
 }
+
+export interface Resposta {
+  id: number
+  solicitacao_id: string
+  autor_nome: string
+  autor_tag: string | null
+  tipo: 'resposta' | 'encaminhamento'
+  texto: string
+  criado_em: string
+}

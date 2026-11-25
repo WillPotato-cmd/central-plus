@@ -194,6 +194,13 @@ select, input[type='text'], input[type='email'], input[type='password'], input[t
 .status-aguardando { background: #eadec9; color: #785317; }
 .status-concluido { background: #dce8de; color: #2e4a33; }
 .resposta { margin-top: 8px; padding: 8px 10px; background: var(--field); border-radius: 6px; font-size: 0.84rem; color: var(--ink-soft); border: 1px dashed var(--line); white-space: pre-wrap; }
+.historico { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.historico .resposta { margin-top: 0; }
+.resposta-autor { font-size: 0.76rem; margin-bottom: 2px; color: var(--ink); }
+.resposta-data { color: var(--ink-soft); }
+.resposta.encaminhamento { border-style: solid; border-color: var(--steel); background: #eef3f5; font-style: italic; }
+.link.pequeno { font-size: 0.76rem; align-self: flex-start; }
+select.encaminhar { font-size: 0.78rem; padding: 6px 8px; min-height: 34px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; }
 .slip-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .slip-actions button { font-size: 0.78rem; padding: 6px 10px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; min-height: 34px; }
 .slip-actions button:hover:not(:disabled) { background: var(--paper-dark); }
@@ -255,7 +262,7 @@ select, input[type='text'], input[type='email'], input[type='password'], input[t
   .filter-row label, .filter-row select, .filter-row input { flex: 1 1 100%; width: 100%; }
   .filter-row label select { margin-top: 4px; }
   .search-pagination-bar { padding: 10px; }
-  .search-pagination-bar input { min-width: 0; width: 100%; }
+  .search-pagination-bar input { min-width: 0; width: 100%; flex: 1 1 100%; }
   .resp-row { flex-direction: column; }
   .resp-row button { min-height: 38px; }
 }
