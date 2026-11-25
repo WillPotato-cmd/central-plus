@@ -18,6 +18,8 @@ export interface Usuario {
 export interface Loja {
   nome: string
   ativo: boolean
+  /** Loja correspondente no Avalia Potato (ligada pela Diretoria) */
+  avalia_loja_id?: string | null
 }
 
 export interface Solicitacao {

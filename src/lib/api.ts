@@ -46,7 +46,7 @@ export async function registrarLog(acao: string): Promise<void> {
 // ---------------------------------------------------------------- lojas
 
 export async function listarLojas(): Promise<Loja[]> {
-  const { data, error } = await supabase.from('lojas').select('nome, ativo').order('nome')
+  const { data, error } = await supabase.from('lojas').select('nome, ativo, avalia_loja_id').order('nome')
   if (error) falhar('Erro ao carregar lojas', error)
   return (data ?? []) as Loja[]
 }
@@ -55,6 +55,16 @@ export async function salvarLoja(nome: string, ativo = true): Promise<void> {
   const { error } = await supabase.from('lojas').upsert({ nome, ativo }, { onConflict: 'nome' })
   if (error) falhar('Não foi possível salvar a loja', error)
   await registrarLog(`${ativo ? 'Cadastrou/reativou' : 'Desativou'} a loja ${nome}`)
+}
+
+/** Liga (ou desliga, com null) a loja do Central+ a uma loja do Avalia Potato */
+export async function vincularLojaAvalia(nome: string, avaliaId: string | null, nomeAvalia?: string): Promise<void> {
+  const { error } = await supabase.from('lojas').update({ avalia_loja_id: avaliaId }).eq('nome', nome)
+  if (error) {
+    if (error.code === '23505') throw new ErroApp('Essa loja do Avalia já está ligada a outra loja do Central+.')
+    falhar('Não foi possível salvar a ligação', error)
+  }
+  await registrarLog(avaliaId ? `Ligou a loja ${nome} à loja "${nomeAvalia ?? avaliaId}" do Avalia` : `Desligou a loja ${nome} do Avalia`)
 }
 
 // ---------------------------------------------------------------- anexos
