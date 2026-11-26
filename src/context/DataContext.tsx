@@ -1,8 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as api from '../lib/api'
-import { STATUS_LABEL } from '../lib/constants'
-import { notificar } from '../lib/notify'
-import { lojasPermitidas, podeGerenciar } from '../lib/permissions'
 import { supabase } from '../lib/supabase'
 import type { Loja, Resposta, Solicitacao, Status } from '../lib/types'
 import { useAuth } from './AuthContext'
@@ -53,12 +50,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // Ações feitas neste aparelho: não notificar a própria pessoa
-  const acoesLocais = useRef(new Set<string>())
-  const marcarLocal = (chave: string) => {
-    acoesLocais.current.add(chave)
-    window.setTimeout(() => acoesLocais.current.delete(chave), 10_000)
-  }
 
   const nomesLojasAtivas = useMemo(() => lojas.filter((l) => l.ativo).map((l) => l.nome), [lojas])
 
@@ -84,10 +75,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [uid, recarregar])
 
   // Tempo real: o banco só envia eventos das solicitações que o usuário pode ver
-  const usuarioRef = useRef(usuario)
-  usuarioRef.current = usuario
-  const lojasRef = useRef(nomesLojasAtivas)
-  lojasRef.current = nomesLojasAtivas
   const solicitacoesRef = useRef(solicitacoes)
   solicitacoesRef.current = solicitacoes
 
@@ -96,7 +83,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const canal = supabase
       .channel('solicitacoes-' + uid)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes' }, async (payload) => {
-        const eu = usuarioRef.current
+        // Só mantém a lista em dia; os avisos chegam pelo push (servidor)
         if (payload.eventType === 'DELETE') {
           const id = (payload.old as Partial<Solicitacao>).id
           setSolicitacoes((lista) => lista.filter((s) => s.id !== id))
@@ -107,9 +94,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
         if (payload.eventType === 'INSERT') {
           setSolicitacoes((lista) => (lista.some((s) => s.id === nova.id) ? lista : [nova, ...lista]))
-          if (!acoesLocais.current.has('novo:' + nova.id) && podeGerenciar(eu, nova.setor)) {
-            void notificar('Nova solicitação: ' + nova.titulo, `${nova.loja} · ${nova.setor}`)
-          }
           return
         }
 
@@ -123,17 +107,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const mudouSetor = anterior.setor !== undefined && anterior.setor !== nova.setor
         if (mudouSetor || eraNova) {
           void api.listarRespostas(nova.id).then(juntarRespostas).catch(console.error)
-          if (podeGerenciar(eu, nova.setor) && !podeGerenciar(eu, anterior.setor ?? '') && !acoesLocais.current.has('enc:' + nova.id)) {
-            void notificar('Solicitação encaminhada: ' + nova.titulo, `${nova.loja} · agora em ${nova.setor}`)
-          }
-        }
-        const mudouStatus = anterior.status !== undefined && anterior.status !== nova.status
-        const chave = `status:${nova.id}:${nova.status}`
-        if (mudouStatus && !acoesLocais.current.has(chave)) {
-          const souDaLoja = eu?.tag === 'Líder' && lojasPermitidas(eu, lojasRef.current).includes(nova.loja)
-          if (souDaLoja) {
-            void notificar(`Solicitação ${nova.id} atualizada`, 'Novo status: ' + STATUS_LABEL[nova.status])
-          }
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'respostas_solicitacao' }, (payload) => {
@@ -153,7 +126,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (nova: api.NovaSolicitacao) => {
       if (!usuario) throw new api.ErroApp('Sessão encerrada.')
       const criada = await api.criarSolicitacao(nova, usuario.id)
-      marcarLocal('novo:' + criada.id)
       substituir(criada)
       return criada
     },
@@ -161,7 +133,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const mudarStatus = useCallback(async (id: string, status: Status) => {
-    marcarLocal(`status:${id}:${status}`)
     substituir(await api.mudarStatus(id, status))
   }, [])
 
@@ -175,7 +146,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const encaminhar = useCallback(
     async (id: string, setor: string) => {
-      marcarLocal('enc:' + id)
       substituir(await api.encaminhar(id, setor))
       juntarRespostas(await api.listarRespostas(id))
     },

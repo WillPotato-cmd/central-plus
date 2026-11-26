@@ -12,6 +12,9 @@ const config: CapacitorConfig = {
       insetsHandling: 'css',
       style: 'LIGHT', // ícones escuros na barra, sobre o fundo claro do app
     },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     LocalNotifications: {
       iconColor: '#4B6B4F',
     },

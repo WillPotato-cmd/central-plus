@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Abas, Vazio } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { estadoPermissao, pedirPermissao, type EstadoPermissao } from '../lib/notify'
+import { ativarPush, estadoPush, sincronizarPush, type EstadoPush } from '../lib/push'
 import { visaoPrincipal } from '../lib/permissions'
 import { CentralView } from './CentralView'
 import { Balanco } from './diretoria/Balanco'
@@ -19,11 +19,33 @@ export function Principal() {
   const { usuario, sair } = useAuth()
   const { carregando, erro, recarregar } = useData()
   const [perfilAberto, setPerfilAberto] = useState(false)
-  const [notif, setNotif] = useState<EstadoPermissao>('indisponivel')
+  const [notif, setNotif] = useState<EstadoPush>('indisponivel')
+  const [ativando, setAtivando] = useState(false)
 
+  // Ao entrar: descobre o estado e, se já estava permitido, renova a inscrição
   useEffect(() => {
-    void estadoPermissao().then(setNotif)
-  }, [])
+    void estadoPush().then((e) => {
+      setNotif(e)
+      if (e === 'ativo') void sincronizarPush()
+    })
+  }, [usuario?.id])
+
+  async function ativar() {
+    setAtivando(true)
+    try {
+      const e = await ativarPush()
+      setNotif(e)
+      if (e === 'negado') {
+        window.alert(
+          'As notificações estão bloqueadas neste aparelho. Para liberar, abra os ajustes do aparelho (ou do navegador), procure o Central+ e permita as notificações.',
+        )
+      }
+    } catch (e) {
+      window.alert((e as Error).message)
+    } finally {
+      setAtivando(false)
+    }
+  }
 
   if (!usuario) return null
   const visao = visaoPrincipal(usuario)
@@ -54,9 +76,26 @@ export function Principal() {
         </div>
         <div className="user-info">
           {notif === 'pendente' && (
-            <button className="btn-sm" onClick={() => void pedirPermissao().then(setNotif)}>
-              🔔 Ativar notificações
+            <button className="btn-sm" disabled={ativando} onClick={() => void ativar()}>
+              {ativando ? 'Ativando…' : '🔔 Ativar notificações'}
             </button>
+          )}
+          {notif === 'instalar_iphone' && (
+            <button
+              className="btn-sm"
+              onClick={() =>
+                window.alert(
+                  'No iPhone, as notificações funcionam pelo ícone do Central+ na Tela de Início:\n\n1. Toque em Compartilhar (quadrado com a seta)\n2. Escolha "Adicionar à Tela de Início"\n3. Abra o Central+ pelo ícone novo, entre e toque em "Ativar notificações"',
+                )
+              }
+            >
+              🔔 Notificações no iPhone
+            </button>
+          )}
+          {notif === 'negado' && (
+            <small className="suave" title="Libere nas configurações do aparelho ou do navegador">
+              🔕 Notificações bloqueadas
+            </small>
           )}
           <button className="btn-link" onClick={() => setPerfilAberto(true)} title="Meu perfil">
             {usuario.nome} <small className="tag">{usuario.tag}</small>

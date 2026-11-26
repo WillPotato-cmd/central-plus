@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { buscarPerfil, registrarLog } from '../lib/api'
+import { desligarPushDesteAparelho } from '../lib/push'
 import { INATIVIDADE_MS, SENHA_MINIMA } from '../lib/constants'
 import { ERRO_NO_LINK, SITE_URL, supabase, VEIO_DO_LINK_DE_RECUPERACAO } from '../lib/supabase'
 import type { Usuario } from '../lib/types'
@@ -138,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const sair = useCallback(async (motivo?: string) => {
+    // Só no "Sair" de verdade o aparelho para de receber os avisos da conta.
+    // No logout por inatividade continua recebendo (é o mesmo celular da pessoa).
+    if (!motivo) await desligarPushDesteAparelho()
     await registrarLog(motivo ? `Sessão encerrada: ${motivo}` : 'Realizou logout')
     await supabase.auth.signOut()
     marcaRedefinir.desligar()
