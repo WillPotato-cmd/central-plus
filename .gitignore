@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+.DS_Store
+# Pastas nativas geradas pelo Capacitor (crie com `npx cap add android|ios`)
+android/app/build
+ios/App/Pods
+# Arquivo gerado na compilação
+*.tsbuildinfo
