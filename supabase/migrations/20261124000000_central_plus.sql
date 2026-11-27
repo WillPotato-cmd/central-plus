@@ -53,6 +53,11 @@ create table if not exists public.lojas (
   criado_em timestamptz not null default now()
 );
 
+-- Caso já exista uma tabela "lojas" antiga, completa as colunas
+alter table public.lojas add column if not exists ativo     boolean     not null default true;
+alter table public.lojas add column if not exists criado_em timestamptz not null default now();
+create unique index if not exists lojas_nome_unico on public.lojas (nome);
+
 insert into public.lojas (nome) values
   ('Potato Guará'), ('Potato Pinda'), ('Potato Matriz'),
   ('Potato Via Vale'), ('Potato Center Vale'), ('Potato Vale Sul'),
@@ -98,6 +103,35 @@ create table if not exists public.logs (
   acao          text not null
 );
 alter table public.logs add column if not exists criado_em timestamptz default now();
+
+-- Se já existir uma tabela "auditorias" ou "auditoria_documentos" antiga,
+-- com outro formato, ela é RENOMEADA para <nome>_antiga (nada é apagado)
+-- e a tabela nova é criada no lugar.
+do $$
+declare
+  t record;
+  i record;
+begin
+  for t in
+    select * from (values ('auditorias', 'mes'), ('auditoria_documentos', 'caminho')) as v(tabela, coluna)
+  loop
+    if exists (select 1 from information_schema.tables
+               where table_schema = 'public' and table_name = t.tabela)
+       and not exists (select 1 from information_schema.columns
+                       where table_schema = 'public' and table_name = t.tabela and column_name = t.coluna)
+    then
+      execute format('alter table public.%I rename to %I', t.tabela, t.tabela || '_antiga');
+      -- Renomeia também os índices, para os nomes não colidirem com os da tabela nova
+      for i in
+        select indexname from pg_indexes
+        where schemaname = 'public' and tablename = t.tabela || '_antiga'
+      loop
+        execute format('alter index public.%I rename to %I', i.indexname, i.indexname || '_antiga');
+      end loop;
+      raise notice 'Tabela antiga % renomeada para %_antiga', t.tabela, t.tabela;
+    end if;
+  end loop;
+end $$;
 
 create table if not exists public.auditorias (
   loja            text    not null,
@@ -145,9 +179,13 @@ begin
   if new.id is null or new.id = '' then
     new.id := 'SOL-' || lpad(nextval('public.solicitacoes_numero_seq')::text, 4, '0');
   end if;
-  if new.criado_em is null then new.criado_em := now(); end if;
+  -- Funciona com criado_em do tipo data ou texto (bancos antigos usam texto)
+  -- Formato ISO (2026-11-25T14:07:35.765Z): o app lê igual em qualquer celular
+  if new.criado_em is null then
+    new.criado_em := to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+  end if;
   if new."timestamp" is null then
-    new."timestamp" := (extract(epoch from new.criado_em) * 1000)::bigint;
+    new."timestamp" := (extract(epoch from now()) * 1000)::bigint;
   end if;
   return new;
 end $$;
