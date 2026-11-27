@@ -127,7 +127,17 @@ let chavePublica: string | null = null
 async function obterChavePublica(): Promise<string> {
   if (chavePublica) return chavePublica
   const { data, error } = await supabase.functions.invoke('notificar', { body: { acao: 'chave_publica' } })
-  if (error || !data?.chave) throw new Error('As notificações ainda não foram configuradas no servidor.')
+  if (error || !data?.chave) {
+    // Mostra o motivo que o servidor devolveu, para facilitar o diagnóstico
+    let motivo = data?.error as string | undefined
+    try {
+      const corpo = await (error as { context?: { json?: () => Promise<{ error?: string }> } } | null)?.context?.json?.()
+      motivo = corpo?.error ?? motivo
+    } catch {
+      /* mantém o motivo que tiver */
+    }
+    throw new Error(motivo ?? 'As notificações ainda não foram configuradas no servidor.')
+  }
   chavePublica = data.chave as string
   return chavePublica
 }
