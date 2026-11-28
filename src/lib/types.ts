@@ -3,6 +3,9 @@ export type TipoSupervisao = 'operacao' | 'administrativa' | ''
 export type Status = 'pendente' | 'em_andamento' | 'aguardando' | 'concluido'
 export type Prioridade = 'baixa' | 'normal' | 'urgente'
 export type TipoAuditoria = 'presencial' | 'adm'
+export type Tema = 'centralplus' | 'potato' | 'kanpek'
+export type Modo = 'auto' | 'claro' | 'escuro'
+export type Grupo = 'potato' | 'kanpek'
 
 export interface Usuario {
   id: string
@@ -13,11 +16,15 @@ export interface Usuario {
   setores_acesso: string[] | null
   tipo_supervisao: TipoSupervisao | null
   ativo: boolean | null
+  /** Tema escolhido (Central, Supervisão, Diretoria). Líder usa o do grupo. */
+  tema?: Tema | null
+  modo?: Modo | null
 }
 
 export interface Loja {
   nome: string
   ativo: boolean
+  grupo: Grupo
   /** Loja correspondente no Avalia Potato (ligada pela Diretoria) */
   avalia_loja_id?: string | null
 }
@@ -35,6 +42,9 @@ export interface Solicitacao {
   criador_id: string | null
   criado_em: string | null
   timestamp: number | null
+  atualizado_em?: string | null
+  /** Quando foi concluída (só existe para as concluídas a partir de 28/11/2026) */
+  concluido_em?: string | null
   /** URL assinada (temporária) da imagem; só existe no app, não no banco */
   imagemUrl?: string
 }

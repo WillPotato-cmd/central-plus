@@ -29,7 +29,8 @@ function alternar(lista: string[], item: string, marcado: boolean): string[] {
 
 export function Usuarios() {
   const { usuario: eu } = useAuth()
-  const { nomesLojasAtivas } = useData()
+  const { nomesLojasAtivas, lojas } = useData()
+  const grupoDe = (nome: string) => lojas.find((x) => x.nome === nome)?.grupo
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [form, setForm] = useState<Formulario>(VAZIO)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -132,11 +133,16 @@ export function Usuarios() {
         {form.tag === 'Líder' && (
           <div className="field">
             <span>Lojas liberadas</span>
+            <small className="suave">Um líder só pode ter lojas de um grupo (Potato ou Kanpek).</small>
             <div className="checkbox-group">
               {nomesLojasAtivas.map((l) => (
                 <label className="checkbox-item" key={l}>
                   <input
                     type="checkbox"
+                    disabled={
+                      !form.lojas_acesso.includes(l) &&
+                      form.lojas_acesso.some((x) => grupoDe(x) && grupoDe(x) !== grupoDe(l))
+                    }
                     checked={form.lojas_acesso.includes(l)}
                     onChange={(e) => set('lojas_acesso', alternar(form.lojas_acesso, l, e.target.checked))}
                   />{' '}

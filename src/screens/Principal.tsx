@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Abas, Vazio } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import { aplicarAparencia, temaDoUsuario } from '../lib/aparencia'
 import { ativarPush, estadoPush, sincronizarPush, type EstadoPush } from '../lib/push'
 import { visaoPrincipal } from '../lib/permissions'
 import { CentralView } from './CentralView'
@@ -17,10 +18,15 @@ type AbaDiretoria = 'balanco' | 'audit_adm' | 'audit_presencial' | 'central' | '
 
 export function Principal() {
   const { usuario, sair } = useAuth()
-  const { carregando, erro, recarregar } = useData()
+  const { carregando, erro, recarregar, lojas } = useData()
   const [perfilAberto, setPerfilAberto] = useState(false)
   const [notif, setNotif] = useState<EstadoPush>('indisponivel')
   const [ativando, setAtivando] = useState(false)
+
+  // Cores da pessoa (Líder: grupo das lojas; demais: o que escolheram)
+  useEffect(() => {
+    if (usuario) aplicarAparencia(temaDoUsuario(usuario, lojas), usuario.modo ?? 'auto')
+  }, [usuario, lojas])
 
   // Ao entrar: descobre o estado e, se já estava permitido, renova a inscrição
   useEffect(() => {

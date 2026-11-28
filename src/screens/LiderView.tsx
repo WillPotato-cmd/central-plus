@@ -128,8 +128,8 @@ function DashboardLoja({ loja, abertas }: { loja: string; abertas: number }) {
           <h2>Evolução {ano}</h2>
           <LineChart
             series={[
-              { nome: 'Auditoria Presencial', cor: '#4B6B4F', valores: presencial },
-              { nome: 'Auditoria Administrativa', cor: '#49606B', valores: adm },
+              { nome: 'Auditoria Presencial', cor: 'var(--moss)', valores: presencial },
+              { nome: 'Auditoria Administrativa', cor: 'var(--steel)', valores: adm },
             ]}
           />
         </div>

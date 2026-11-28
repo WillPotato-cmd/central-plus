@@ -86,6 +86,22 @@ export async function listarLojasAvalia(): Promise<LojaAvalia[]> {
   return r.lojas ?? []
 }
 
+export interface FeedbackResumo {
+  id: string
+  data: string
+  nota: number
+  origem: Origem | null
+  criado_em: string | null
+  /** Só vem preenchido nas avaliações ruins (nota ≤ 2) */
+  texto: string | null
+}
+
+/** Notas dos últimos 35 dias de todas as lojas ligadas, por nome da loja do Central+ */
+export async function buscarResumoAvalia(): Promise<Record<string, FeedbackResumo[]>> {
+  const r = await chamar<{ lojas: Record<string, FeedbackResumo[]> }>({ acao: 'resumo' })
+  return r.lojas ?? {}
+}
+
 // ---------------------------------------------------------------- datas
 // Semana de segunda a domingo, como no Avalia (dateUtils.getWeekRange).
 

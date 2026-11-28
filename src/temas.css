@@ -1,0 +1,276 @@
+/* =====================================================================
+   Central+ · temas
+   =====================================================================
+   O tema vem do atributo data-tema no <html> (centralplus | potato | kanpek)
+   e o modo de data-modo (claro | escuro). Quem decide é src/lib/aparencia.ts.
+
+   Cores das marcas (tiradas dos logos):
+     Toasted Potato  roxo #4B00B3  · laranja #FC5D23
+     Kanpek          verde #38584B · coral   #FD8574
+   No modo escuro as cores principais ficam um pouco mais claras, para
+   continuarem legíveis sobre o fundo escuro.
+   ===================================================================== */
+
+:root,
+[data-tema='centralplus'][data-modo='claro'] {
+  color-scheme: light;
+  --fonte-titulo: 'Fraunces', Georgia, serif;
+
+  --paper: #ece6d8;        /* fundo da página */
+  --paper-dark: #ded5c0;   /* faixas, cabeçalhos de tabela, trilhos */
+  --surface: #ffffff;      /* cartões */
+  --field: #fbfaf6;        /* campos de formulário */
+  --ink: #20291f;          /* texto */
+  --ink-soft: #52584f;     /* texto secundário */
+  --line: rgba(32, 41, 31, 0.16);
+
+  --accent: #20291f;       /* botões principais, aba ativa, régua do topo */
+  --accent-hover: #0f1610;
+  --on-accent: #ece6d8;
+  --destaque: #b4502e;     /* o "+" do Central+ */
+
+  --rust: #b4502e;         /* urgente / perigo */
+  --mustard: #c99a3e;      /* atenção */
+  --moss: #4b6b4f;         /* ok */
+  --steel: #49606b;        /* informação / links */
+
+  --st-pendente-bg: #f4e6c8;   --st-pendente-fg: #7a5a15;
+  --st-andamento-bg: #dce6e9;  --st-andamento-fg: #2f4a54;
+  --st-aguardando-bg: #eadec9; --st-aguardando-fg: #785317;
+  --st-concluido-bg: #dce8de;  --st-concluido-fg: #2e4a33;
+
+  --tint-urgente: #fdf2f0;
+  --tint-normal: #f0f4f6;
+  --tint-baixa: #f2f6f3;
+  --tint-encaminhado: #eef3f5;
+
+  --ok-bg: #dce8de;   --ok-fg: #2e4a33;
+  --warn-bg: #f4e6c8; --warn-fg: #7a5a15;
+  --bad-bg: #f6d9d0;  --bad-fg: #8a3216;
+
+  --ifood-bg: #f8d7d3; --ifood-fg: #9b1c12;
+  --food99-bg: #fbe9b8; --food99-fg: #6d5208;
+
+  --sombra: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+[data-tema='centralplus'][data-modo='escuro'] {
+  color-scheme: dark;
+  --paper: #13160f;
+  --paper-dark: #272d22;
+  --surface: #1c2119;
+  --field: #181c15;
+  --ink: #ece6d8;
+  --ink-soft: #a9ae9f;
+  --line: rgba(236, 230, 216, 0.14);
+
+  --accent: #ece6d8;
+  --accent-hover: #ffffff;
+  --on-accent: #1a1e17;
+  --destaque: #e8835e;
+
+  --rust: #ec8a68;
+  --mustard: #e3b862;
+  --moss: #93bf98;
+  --steel: #96b6c5;
+
+  --st-pendente-bg: #3a3220;   --st-pendente-fg: #f0cf86;
+  --st-andamento-bg: #22313a;  --st-andamento-fg: #a9cbd9;
+  --st-aguardando-bg: #3a2e1f; --st-aguardando-fg: #e7be85;
+  --st-concluido-bg: #213326;  --st-concluido-fg: #a3d3aa;
+
+  --tint-urgente: #2c1e19;
+  --tint-normal: #1b2428;
+  --tint-baixa: #1b251d;
+  --tint-encaminhado: #1b2428;
+
+  --ok-bg: #213326;   --ok-fg: #a3d3aa;
+  --warn-bg: #3a3220; --warn-fg: #f0cf86;
+  --bad-bg: #3d231b;  --bad-fg: #f4ab91;
+
+  --ifood-bg: #3d201d; --ifood-fg: #f6a69d;
+  --food99-bg: #38301a; --food99-fg: #edcf7a;
+
+  --sombra: none;
+}
+
+/* ---------------------------------------------------------------- Toasted Potato */
+
+[data-tema='potato'][data-modo='claro'] {
+  color-scheme: light;
+  --fonte-titulo: 'Baloo 2', 'Fraunces', sans-serif;
+
+  --paper: #f4f1fa;
+  --paper-dark: #e6dff3;
+  --surface: #ffffff;
+  --field: #fbfaff;
+  --ink: #1e1433;
+  --ink-soft: #5e5670;
+  --line: rgba(30, 20, 51, 0.14);
+
+  --accent: #4b00b3;
+  --accent-hover: #3a008c;
+  --on-accent: #ffffff;
+  --destaque: #fc5d23;
+
+  --rust: #c9341a;
+  --mustard: #a87a06;
+  --moss: #2b7a4b;
+  --steel: #4b00b3;
+
+  --st-pendente-bg: #ffe8d9;   --st-pendente-fg: #93360c;
+  --st-andamento-bg: #ece2fb;  --st-andamento-fg: #3d0091;
+  --st-aguardando-bg: #f5ecd2; --st-aguardando-fg: #725208;
+  --st-concluido-bg: #dff1e6;  --st-concluido-fg: #1d5c37;
+
+  --tint-urgente: #fff1eb;
+  --tint-normal: #f6f2fd;
+  --tint-baixa: #f1f8f3;
+  --tint-encaminhado: #f0eafb;
+
+  --ok-bg: #dff1e6;   --ok-fg: #1d5c37;
+  --warn-bg: #fff0d4; --warn-fg: #725208;
+  --bad-bg: #ffe2da;  --bad-fg: #9c2a10;
+
+  --ifood-bg: #fbd9d4; --ifood-fg: #9b1c12;
+  --food99-bg: #fdecbd; --food99-fg: #6d5208;
+
+  --sombra: 0 4px 14px rgba(75, 0, 179, 0.06);
+}
+
+[data-tema='potato'][data-modo='escuro'] {
+  color-scheme: dark;
+  --fonte-titulo: 'Baloo 2', 'Fraunces', sans-serif;
+
+  --paper: #110a1d;
+  --paper-dark: #281e3f;
+  --surface: #1b1330;
+  --field: #160f27;
+  --ink: #efe9f9;
+  --ink-soft: #aca3c1;
+  --line: rgba(239, 233, 249, 0.14);
+
+  --accent: #a97eff;
+  --accent-hover: #bd9bff;
+  --on-accent: #12091f;
+  --destaque: #ff7b47;
+
+  --rust: #ff8a6b;
+  --mustard: #f0c160;
+  --moss: #80d3a0;
+  --steel: #bea4ff;
+
+  --st-pendente-bg: #3d2416;   --st-pendente-fg: #ffb48c;
+  --st-andamento-bg: #2c1f4c;  --st-andamento-fg: #cfb8ff;
+  --st-aguardando-bg: #3a3018; --st-aguardando-fg: #f0cf86;
+  --st-concluido-bg: #1b3326;  --st-concluido-fg: #a0ddb6;
+
+  --tint-urgente: #2a1520;
+  --tint-normal: #1f1637;
+  --tint-baixa: #17251e;
+  --tint-encaminhado: #251a40;
+
+  --ok-bg: #1b3326;   --ok-fg: #a0ddb6;
+  --warn-bg: #3a3018; --warn-fg: #f0cf86;
+  --bad-bg: #3d1f1a;  --bad-fg: #ffad96;
+
+  --ifood-bg: #3d201d; --ifood-fg: #f6a69d;
+  --food99-bg: #38301a; --food99-fg: #edcf7a;
+
+  --sombra: none;
+}
+
+/* ---------------------------------------------------------------- Kanpek */
+
+[data-tema='kanpek'][data-modo='claro'] {
+  color-scheme: light;
+  --fonte-titulo: 'Josefin Sans', 'Fraunces', sans-serif;
+
+  --paper: #edf2ef;
+  --paper-dark: #dae5df;
+  --surface: #ffffff;
+  --field: #f8fbf9;
+  --ink: #16261e;
+  --ink-soft: #55645c;
+  --line: rgba(22, 38, 30, 0.14);
+
+  --accent: #38584b;
+  --accent-hover: #2a4439;
+  --on-accent: #ffffff;
+  --destaque: #fd8574;
+
+  --rust: #bf3f2b;
+  --mustard: #9c7714;
+  --moss: #2e7553;
+  --steel: #38584b;
+
+  --st-pendente-bg: #fbead5;   --st-pendente-fg: #74500f;
+  --st-andamento-bg: #dde9f0;  --st-andamento-fg: #2a4f66;
+  --st-aguardando-bg: #fde3de; --st-aguardando-fg: #8a3626;
+  --st-concluido-bg: #dbede3;  --st-concluido-fg: #22593e;
+
+  --tint-urgente: #fff1ee;
+  --tint-normal: #eff5f2;
+  --tint-baixa: #f0f7f2;
+  --tint-encaminhado: #e6f0eb;
+
+  --ok-bg: #dbede3;   --ok-fg: #22593e;
+  --warn-bg: #fbead5; --warn-fg: #74500f;
+  --bad-bg: #fde3de;  --bad-fg: #96301e;
+
+  --ifood-bg: #fbd9d4; --ifood-fg: #9b1c12;
+  --food99-bg: #fdecbd; --food99-fg: #6d5208;
+
+  --sombra: 0 4px 14px rgba(56, 88, 75, 0.06);
+}
+
+[data-tema='kanpek'][data-modo='escuro'] {
+  color-scheme: dark;
+  --fonte-titulo: 'Josefin Sans', 'Fraunces', sans-serif;
+
+  --paper: #0d1612;
+  --paper-dark: #213129;
+  --surface: #16231d;
+  --field: #121e18;
+  --ink: #e5eee9;
+  --ink-soft: #a0b2a9;
+  --line: rgba(229, 238, 233, 0.14);
+
+  --accent: #8ec3aa;
+  --accent-hover: #a7d3be;
+  --on-accent: #0d1612;
+  --destaque: #fd8574;
+
+  --rust: #ff8f78;
+  --mustard: #e6c168;
+  --moss: #8ec3aa;
+  --steel: #9dc4db;
+
+  --st-pendente-bg: #3a2f18;   --st-pendente-fg: #f0cf86;
+  --st-andamento-bg: #1e2f38;  --st-andamento-fg: #a9cbd9;
+  --st-aguardando-bg: #3a221d; --st-aguardando-fg: #fdb3a6;
+  --st-concluido-bg: #1a3328;  --st-concluido-fg: #a0d9bc;
+
+  --tint-urgente: #2a1a17;
+  --tint-normal: #16241f;
+  --tint-baixa: #15251c;
+  --tint-encaminhado: #1a2c24;
+
+  --ok-bg: #1a3328;   --ok-fg: #a0d9bc;
+  --warn-bg: #3a2f18; --warn-fg: #f0cf86;
+  --bad-bg: #3a221d;  --bad-fg: #ffb0a0;
+
+  --ifood-bg: #3d201d; --ifood-fg: #f6a69d;
+  --food99-bg: #38301a; --food99-fg: #edcf7a;
+
+  --sombra: none;
+}
+
+/* Troca suave entre temas */
+body,
+.card,
+.slip,
+.kpi-card,
+.store-card {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

@@ -5,7 +5,9 @@ import { BUCKET_ANEXOS, BUCKET_AUDITORIAS } from './constants'
 import { supabase } from './supabase'
 import type {
   DocAuditoria,
+  Grupo,
   Loja,
+  Modo,
   LogItem,
   NotaAuditoria,
   Prioridade,
@@ -13,6 +15,7 @@ import type {
   Solicitacao,
   Status,
   Tag,
+  Tema,
   TipoAuditoria,
   TipoSupervisao,
   Usuario,
@@ -48,13 +51,13 @@ export async function registrarLog(acao: string): Promise<void> {
 // ---------------------------------------------------------------- lojas
 
 export async function listarLojas(): Promise<Loja[]> {
-  const { data, error } = await supabase.from('lojas').select('nome, ativo, avalia_loja_id').order('nome')
+  const { data, error } = await supabase.from('lojas').select('nome, ativo, grupo, avalia_loja_id').order('nome')
   if (error) falhar('Erro ao carregar lojas', error)
   return (data ?? []) as Loja[]
 }
 
-export async function salvarLoja(nome: string, ativo = true): Promise<void> {
-  const { error } = await supabase.from('lojas').upsert({ nome, ativo }, { onConflict: 'nome' })
+export async function salvarLoja(nome: string, ativo = true, grupo?: Grupo): Promise<void> {
+  const { error } = await supabase.from('lojas').upsert(grupo ? { nome, ativo, grupo } : { nome, ativo }, { onConflict: 'nome' })
   if (error) falhar('Não foi possível salvar a loja', error)
   await registrarLog(`${ativo ? 'Cadastrou/reativou' : 'Desativou'} a loja ${nome}`)
 }
@@ -67,6 +70,22 @@ export async function vincularLojaAvalia(nome: string, avaliaId: string | null, 
     falhar('Não foi possível salvar a ligação', error)
   }
   await registrarLog(avaliaId ? `Ligou a loja ${nome} à loja "${nomeAvalia ?? avaliaId}" do Avalia` : `Desligou a loja ${nome} do Avalia`)
+}
+
+/** Troca o grupo (Potato/Kanpek) da loja */
+export async function definirGrupoLoja(nome: string, grupo: Grupo): Promise<void> {
+  const { error } = await supabase.from('lojas').update({ grupo }).eq('nome', nome)
+  if (error) {
+    if (error.code === '23514') throw new ErroApp('Algum líder ficaria com lojas dos dois grupos. Ajuste as lojas dele antes.')
+    falhar('Não foi possível trocar o grupo', error)
+  }
+  await registrarLog(`Mudou o grupo da loja ${nome} para ${grupo === 'kanpek' ? 'Kanpek' : 'Potato'}`)
+}
+
+/** Salva tema e modo da própria pessoa */
+export async function salvarMinhaAparencia(tema: Tema | null, modo: Modo): Promise<void> {
+  const { error } = await supabase.rpc('atualizar_minha_aparencia', { p_tema: tema, p_modo: modo })
+  if (error) falhar('Não foi possível salvar a aparência', error)
 }
 
 // ---------------------------------------------------------------- anexos
@@ -237,6 +256,7 @@ export async function criarUsuario(email: string, senha: string, dados: DadosUsu
 
 export async function atualizarUsuario(id: string, email: string, dados: DadosUsuario): Promise<void> {
   const { error } = await supabase.from('usuarios').update(normalizarAcessos(dados)).eq('id', id)
+  if (error?.code === '23514') throw new ErroApp('Um líder só pode ter lojas de um grupo (Potato ou Kanpek).')
   if (error) falhar('Não foi possível salvar as alterações', error)
   await registrarLog(`Editou o usuário ${email}`)
 }

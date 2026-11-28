@@ -9,6 +9,8 @@
 // Ações:
 //   { acao: 'lojas' }               → lista as lojas do Avalia (só Diretoria)
 //   { acao: 'dados', loja: 'Nome' } → avaliações e operação da loja do Central+
+//   { acao: 'resumo' }              → notas dos últimos 35 dias de todas as lojas
+//                                     ligadas (Diretoria e Supervisão; dashboard)
 //
 // IMPORTANTE: esta função NUNCA consulta a tabela vendas_diarias.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -144,6 +146,51 @@ Deno.serve(async (req) => {
         notasSecas: notasSecas.data ?? [],
         operacao: operacao.data ?? [],
       })
+    }
+
+    // 3c. Resumo de todas as lojas ligadas (dashboard da Diretoria)
+    //     Só nota e data de cada avaliação; o texto vem apenas das ruins (nota ≤ 2).
+    if (acao === 'resumo') {
+      if (perfil.tag !== 'Diretoria' && perfil.tag !== 'Supervisão') return json({ error: 'Sem acesso.' }, 403)
+
+      const { data: ligadas, error: errLig } = await central
+        .from('lojas')
+        .select('nome, avalia_loja_id')
+        .eq('ativo', true)
+        .not('avalia_loja_id', 'is', null)
+      if (errLig) return json({ error: 'Erro ao ler lojas: ' + errLig.message }, 500)
+      const porId = new Map((ligadas ?? []).map((l) => [l.avalia_loja_id as string, l.nome as string]))
+      if (porId.size === 0) return json({ lojas: {} })
+
+      const desde = new Date()
+      desde.setDate(desde.getDate() - 35)
+      const desdeData = desde.toISOString().slice(0, 10)
+
+      const { data, error } = await avalia
+        .from('feedbacks')
+        .select('id, loja_id, data, nota, texto, origem, criado_em')
+        .in('loja_id', [...porId.keys()])
+        .gte('data', desdeData)
+        .order('data', { ascending: false })
+        .limit(20000)
+      if (error) return json({ error: 'Erro ao ler dados do Avalia: ' + error.message }, 502)
+
+      const lojas: Record<string, unknown[]> = {}
+      for (const nome of porId.values()) lojas[nome] = []
+      for (const f of data ?? []) {
+        const nome = porId.get(f.loja_id)
+        if (!nome) continue
+        const ruim = Number(f.nota) <= 2
+        lojas[nome].push({
+          id: f.id,
+          data: f.data,
+          nota: f.nota,
+          origem: f.origem,
+          criado_em: f.criado_em,
+          texto: ruim ? f.texto : null,
+        })
+      }
+      return json({ lojas })
     }
 
     return json({ error: 'Ação desconhecida.' }, 400)

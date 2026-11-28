@@ -2,7 +2,12 @@ import { App as CapApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './temas.css'
 import './styles.css'
+import { aplicarAparenciaGuardada } from './lib/aparencia'
+
+// Antes de tudo: as cores que este aparelho usou da última vez
+aplicarAparenciaGuardada()
 
 const raiz = document.getElementById('root')!
 

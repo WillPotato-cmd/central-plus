@@ -45,12 +45,12 @@ export function LineChart({ series }: { series: Serie[] }) {
               <polyline
                 points={pontos.map(([px, py]) => `${px},${py}`).join(' ')}
                 fill="none"
-                stroke={s.cor}
+                style={{ stroke: s.cor }}
                 strokeWidth={2.5}
                 strokeLinejoin="round"
               />
               {pontos.map(([px, py, v], i) => (
-                <circle key={i} cx={px} cy={py} r={3.5} fill={s.cor}>
+                <circle key={i} cx={px} cy={py} r={3.5} style={{ fill: s.cor }}>
                   <title>{`${s.nome}: ${v}`}</title>
                 </circle>
               ))}

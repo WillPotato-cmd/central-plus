@@ -3,13 +3,14 @@ import { Campo, useAcao, usePaginacao } from '../../components/ui'
 import { useData } from '../../context/DataContext'
 import * as api from '../../lib/api'
 import { listarLojasAvalia, type LojaAvalia } from '../../lib/avalia'
-import type { Loja } from '../../lib/types'
+import type { Grupo, Loja } from '../../lib/types'
 import { limparCacheAvalia } from '../Avaliacoes'
 
 /** Lojas agora ficam no banco. "Excluir" vira desativar, para não perder o histórico. */
 export function Lojas() {
   const { lojas, solicitacoes, recarregar } = useData()
   const [nome, setNome] = useState('')
+  const [grupo, setGrupo] = useState<Grupo>('potato')
   const { ocupado, executar } = useAcao()
   const { visiveis, barra } = usePaginacao<Loja>(lojas, (l) => l.nome, 10)
   const [lojasAvalia, setLojasAvalia] = useState<LojaAvalia[] | null>(null)
@@ -36,15 +37,29 @@ export function Lojas() {
             return
           }
           void executar(async () => {
-            await api.salvarLoja(n, true)
+            await api.salvarLoja(n, true, grupo)
             setNome('')
+            setGrupo('potato')
             await recarregar()
           })
         }}
       >
         <h2>Cadastrar Nova Loja</h2>
         <Campo rotulo="Nome da unidade">
-          <input value={nome} maxLength={80} onChange={(e) => setNome(e.target.value)} />
+          <input
+            value={nome}
+            maxLength={80}
+            onChange={(e) => {
+              setNome(e.target.value)
+              if (/^\s*kanpek/i.test(e.target.value)) setGrupo('kanpek')
+            }}
+          />
+        </Campo>
+        <Campo rotulo="Grupo (define as cores dos líderes)">
+          <select value={grupo} onChange={(e) => setGrupo(e.target.value as Grupo)}>
+            <option value="potato">Toasted Potato</option>
+            <option value="kanpek">Kanpek</option>
+          </select>
         </Campo>
         <button className="submit-btn" disabled={ocupado}>
           Salvar Loja
@@ -59,6 +74,7 @@ export function Lojas() {
             <thead>
               <tr>
                 <th>LOJA</th>
+                <th>GRUPO</th>
                 <th>HISTÓRICO</th>
                 <th>AVALIA POTATO</th>
                 <th>STATUS</th>
@@ -69,6 +85,23 @@ export function Lojas() {
               {visiveis.map((l) => (
                 <tr key={l.nome}>
                   <td>{l.nome}</td>
+                  <td>
+                    <select
+                      aria-label={`Grupo da loja ${l.nome}`}
+                      value={l.grupo}
+                      disabled={ocupado}
+                      onChange={(e) => {
+                        const g = e.target.value as Grupo
+                        void executar(async () => {
+                          await api.definirGrupoLoja(l.nome, g)
+                          await recarregar()
+                        })
+                      }}
+                    >
+                      <option value="potato">Potato</option>
+                      <option value="kanpek">Kanpek</option>
+                    </select>
+                  </td>
                   <td>{solicitacoes.filter((s) => s.loja === l.nome).length} solicitações</td>
                   <td>
                     {lojasAvalia ? (
